@@ -1,4 +1,5 @@
 import dataset from "./metro-data.json";
+import {metroMapInfo} from "./metro-map.ts";
 
 type RawStation={id:string,name:string,aliases:string[],active:boolean,location:number[]|null};
 type Line={id:string,service_id:string,name:string,color:string,loop:boolean,stations:RawStation[]};
@@ -76,6 +77,10 @@ function explicitCity(q:string){const leading=dataset.scope_cities.find(c=>q.sta
 function response(city:string){const n=networks.find(n=>n.city===city);return {ok:true,domain:"travel",engine:"metro",steps:1,trace:[{tool:"metro_network",ok:true,note:"根据已导入的运营站点线网计算"}],sources:n?[{title:city+"高德地铁图（公开来源）",url:n.map_url},{title:"站点数据来源",url:n.data_url}]:[{title:"高德地铁图城市目录",url:dataset.source.viewer_url}],retrieved_at:dataset.retrieved_at};}
 function clarify(city:string,label:string,choices:Station[]){const index=indexFor(city)!;return {...response(city),needs_input:true,answer:label+"对应多个不同站点，请补充线路或使用完整站名。",columns:["站点","所属线路"],rows:choices.map(s=>[s.name,[...s.lines].map(id=>index.lines.get(id)!.name).join("、")])};}
 export function metroAnswer(question:string,history:any[]=[],details:Record<string,string>={}):any|null{
+  if(/(?:直接|显示|展示|发|出|看).*(?:图片|图)|(?:不要|不用|别).*(?:点|链接)/.test(question)&&!/地铁|号线|线网|线路图/.test(question)){
+    const previous=[...history].reverse().find(h=>h.role==="user");
+    if(previous&&/地铁图|线路图|线网图|号线图/.test(previous.content))question=previous.content;
+  }
   if(/驾车|开车|自驾|步行|走路/.test(question)||details.action!=="metro"&&["driving","walking"].includes(details.transport))return null;
   if(details.action==="traffic"||/(?:客流|客运量|运营里程|走行里程|公路里程|平均车速|天气)/.test(question))return null;
   const requested=details.action==="metro"||isMetroQuery(question),pair=details.origin&&details.destination?{origin:details.origin,destination:details.destination}:pieces(question);
@@ -97,12 +102,12 @@ export function metroAnswer(question:string,history:any[]=[],details:Record<stri
     return {...response(city),answer:intro+(instructions?"\n\n"+instructions:""),metro_route:route,columns:["分段","线路","方向","上车站","下车站","乘坐站数"],rows:route.segments.map((s,i)=>[i+1,s.line,s.direction,s.origin,s.destination,s.stops]),notice:"按换乘较少、再按站数较少计算的静态参考路线。抓取于 "+dataset.retrieved_at.slice(0,10)+"；不含临时停运、班次、票价、出站换乘和贯通车保证，请以运营方现场信息为准。"};
   }
   if(!requested&&(!/站[？?]?$/.test(question)||!findMetroStations(city,question).length))return null;
-  const mapQuestion=/地铁图|线路图|线网图/.test(question);
+  const mapQuestion=/地铁图|线路图|线网图|号线图/.test(question);
   const lineToken=question.match(/(?:[Ss]\d+号?线|\d+号线)/)?.[0]?.toUpperCase().replace(/^(S\d+)线$/,"$1号线");
   const selected=lineToken?index.network.lines.filter(l=>l.name.toUpperCase().split(/[（(]/)[0]===lineToken):index.network.lines.filter(l=>question.includes(l.name));
-  if(selected.length){return {...response(city),answer:city+selected[0].name+"，以下按运营方向列出已导入站点"+(selected.length>1?"（包含不同分支，请注意终点方向）":"")+"。",columns:["线路","方向","站序","站点"],rows:selected.flatMap(l=>l.stations.filter(s=>s.active).map((s,i)=>[l.name,l.stations.filter(s=>s.active)[0].name+" → "+l.stations.filter(s=>s.active).at(-1)!.name,i+1,s.name]))};}
+  if(selected.length){return {...response(city),...(mapQuestion?{images:[metroMapInfo(city,selected[0].name)]}:{}),answer:city+selected[0].name+(mapQuestion?"示意图如下，可点图片放大查看。":"，以下按运营方向列出已导入站点。")+(selected.length>1?"包含不同分支，请注意终点方向。":""),columns:["线路","方向","站序","站点"],rows:selected.flatMap(l=>l.stations.filter(s=>s.active).map((s,i)=>[l.name,l.stations.filter(s=>s.active)[0].name+" → "+l.stations.filter(s=>s.active).at(-1)!.name,i+1,s.name]))};}
   if(lineToken)return {...response(city),unavailable:true,answer:"当前"+city+"运营线网快照未收录“"+lineToken+"”，不将规划或在建线路当作已开通。请查看来源中的当前线网图。"};
-  if(mapQuestion)return {...response(city),answer:city+"当前导入 "+index.stations.size+" 个轨道站点、"+new Set(index.network.lines.map(l=>l.name)).size+" 条命名线路（含分支 "+index.lines.size+" 项）。点击下方来源打开高德当前地铁图，也可在出行表单按线路浏览全部站点。资料抓取日期："+dataset.retrieved_at.slice(0,10)+"。",columns:["线路","首站","末站","收录运营站数"],rows:index.network.lines.map(l=>{const s=l.stations.filter(s=>s.active);return [l.name,s[0].name,s.at(-1)!.name,s.length];})};
+  if(mapQuestion)return {...response(city),images:[metroMapInfo(city)],answer:city+"地铁线网图如下，可直接查看，点图片可放大看站名。当前收录 "+index.stations.size+" 个轨道站点、"+new Set(index.network.lines.map(l=>l.name)).size+" 条命名线路（含分支 "+index.lines.size+" 项）。资料抓取日期："+dataset.retrieved_at.slice(0,10)+"。",columns:["线路","首站","末站","收录运营站数"],rows:index.network.lines.map(l=>{const s=l.stations.filter(s=>s.active);return [l.name,s[0].name,s.at(-1)!.name,s.length];})};
   const stationText=question.replace(/(?:有哪些|有什么|有哪几条|有几条|能换乘|可以换乘|属于|是哪|是几|经过|途经|的线路|线路|地铁线路|地铁|站点信息|站点|车站|查询|线).*$/,"").replace(/^从/,"");
   const matches=findMetroStations(city,stationText);
   if(matches.length>1)return clarify(city,"站名",matches);

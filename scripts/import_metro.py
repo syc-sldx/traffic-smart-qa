@@ -113,6 +113,8 @@ def main():
               "limitations": "抓取日期不等于供应商最后更新日期；未在目录收录不代表当地没有轨道交通。只采用供应商标记运营的线路和站点；不含实时停运、班次、票价与末班车保证。"}
     target = ROOT / "server/metro-data.json"
     target.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    from build_metro_maps import main as build_maps
+    build_maps()
     (CACHE / "import-report.json").write_text(json.dumps({"summary": result["summary"], "failures": failures, "coverage": coverage}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({"summary": result["summary"], "failures": failures}, ensure_ascii=False), flush=True)
 

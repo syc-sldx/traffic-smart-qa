@@ -52,4 +52,6 @@ npm start
 
 更新命令：`py scripts/import_metro.py`，更新后重新构建、测试并发布。`--from-cache` 仅用于对已下载原始数据重新规范化，不更新抓取日期。原始下载文件和诊断报告位于被忽略的 `outputs/metro-source/`，不会把任何密钥写入数据集。自动化测试覆盖用户示例、真实换乘、环线、同名站、数据缺失以及原有功能。
 
-公开接口：`GET /api/metro/cities`、`GET /api/metro/network?city=南京`、`GET /api/metro/stations?city=南京&q=新街口`。站间问答继续通过 `/api/chat` 处理。
+查询“南京市地铁图”会在回答中直接显示线网图片，支持放大、缩小、适应屏幕和原尺寸查看；“南京地铁1号线图”可显示单条线路。图片根据同一份高德公开线网数据的示意坐标绘制，标注抓取日期，保留运营站点、线路颜色、换乘标记与图例；不是运营方实时公告。原始下载更新后，导入脚本会同步重建 `server/metro-map-data.json`，也可运行 `py scripts/build_metro_maps.py` 从已有缓存重建几何数据。
+
+公开接口：`GET /api/metro/cities`、`GET /api/metro/network?city=南京`、`GET /api/metro/stations?city=南京&q=新街口`、`GET /api/metro/map.svg?city=南京`（可选 `line=1号线`）。线网图片由同一服务生成，不依赖浏览器跳转高德、第三方图片热链或地图API密钥。站间问答继续通过 `/api/chat` 处理。

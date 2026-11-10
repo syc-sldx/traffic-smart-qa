@@ -42,6 +42,14 @@ test("public HTTP service seeds data, validates requests, isolates reports and r
     const network=await(await fetch(base+"/api/metro/network?city="+encodeURIComponent("南京"))).json();assert.ok(network.station_count>200);assert.ok(network.lines.some(l=>l.name==="1号线"));
     const stops=await(await fetch(base+"/api/metro/stations?city="+encodeURIComponent("南京")+"&q="+encodeURIComponent("新街口"))).json();assert.ok(stops.stations.some(s=>s.name==="新街口"));
     assert.equal((await fetch(base+"/api/metro/network?city="+encodeURIComponent("保定"))).status,404);
+    result=await post({message:"南京市地铁图"});const mapAnswer=await result.json();assert.ok(mapAnswer.images[0].url.startsWith("/api/metro/map.svg?"));
+    const picture=await fetch(base+mapAnswer.images[0].url);assert.equal(picture.status,200);assert.match(picture.headers.get("content-type"),/^image\/svg\+xml/);assert.equal(picture.headers.get("x-content-type-options"),"nosniff");
+    const svg=await picture.text();assert.match(svg,/<svg /);assert.match(svg,/南京南站/);assert.match(svg,/新街口/);assert.match(svg,/高德公开线网数据/);assert.doesNotMatch(svg,/<script|NaN|Infinity|(?:href|src)=/);
+    const linePicture=await fetch(base+"/api/metro/map.svg?city="+encodeURIComponent("南京")+"&line="+encodeURIComponent("1号线"));assert.equal(linePicture.status,200);assert.match(await linePicture.text(),/八卦洲大桥南/);
+    for(const city of ["上海","常州"]){const image=await fetch(base+"/api/metro/map.svg?city="+encodeURIComponent(city));assert.equal(image.status,200);assert.match(await image.text(),/<polyline /);}
+    assert.equal((await fetch(base+"/api/metro/map.svg?city="+encodeURIComponent("保定"))).status,404);
+    assert.equal((await fetch(base+"/api/metro/map.svg?city="+encodeURIComponent("南京")+"&line="+encodeURIComponent("99号线"))).status,404);
+    assert.equal((await fetch(base+"/api/metro/map.svg?city="+"x".repeat(31))).status,400);
     result=await post({message:"南京南站怎么去南京新街口站"});const metro=await result.json();assert.equal(metro.engine,"metro");assert.equal(metro.metro_route.stops,8);assert.equal(metro.metro_route.transfers,0);
     assert.equal((await post("not-json")).status,400);
     assert.equal((await post({message:"x",history:[{role:"system",content:"bad"}]})).status,400);

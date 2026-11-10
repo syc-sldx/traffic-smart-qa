@@ -9,6 +9,7 @@ import {HTML} from "../server/ui.ts";
 import documents from "../server/knowledge.json";
 import annualData from "../server/annual-data.json";
 import {metroCatalogue,metroNetwork,metroStations} from "../server/metro.ts";
+import {renderMetroMap} from "../server/metro-map.ts";
 
 const directory=fileURLToPath(new URL(".",import.meta.url));
 const db=openDatabase(resolve(process.env.DATABASE_PATH||"./data/traffic.db"),resolve(directory,"drizzle"));
@@ -39,6 +40,12 @@ async function route(request){
     if(url.pathname==="/"||url.pathname==="/index.html")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
     if(url.pathname==="/healthz")return json({ok:true});
     if(url.pathname==="/api/metro/cities")return json(metroCatalogue());
+    if(url.pathname==="/api/metro/map.svg"){
+      const city=url.searchParams.get("city")||"",line=url.searchParams.get("line")||"";
+      if(city.length>30||line.length>80)return json({error:"线网查询参数过长。"},400);
+      const svg=renderMetroMap(city,line);
+      return svg?new Response(svg,{headers:{"content-type":"image/svg+xml; charset=utf-8","cache-control":"public, max-age=3600","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; sandbox"}}):json({error:"当前未收录该城市或线路的线网图。"},404);
+    }
     if(url.pathname==="/api/metro/network"){
       const city=url.searchParams.get("city")||"";
       if(city.length>30)return json({error:"城市名称过长。"},400);

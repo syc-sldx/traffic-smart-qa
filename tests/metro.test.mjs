@@ -44,3 +44,11 @@ test("line browsing, station membership, same-station routes and historical cont
   const same=metroAnswer("南京南站怎么去南京南站");assert.equal(same.metro_route.stops,0);
   const context=metroAnswer("1号线有哪些站",[{role:"user",content:"南京地铁图"}]);assert.ok(context.rows.length>=30);
 });
+
+test("map questions return embeddable images for cities, individual lines and image follow-ups",()=>{
+  const city=metroAnswer("南京市地铁图");assert.equal(city.images.length,1);assert.ok(city.images[0].url.startsWith("/api/metro/map.svg?"));assert.match(city.images[0].alt,/南京/);assert.doesNotMatch(city.answer,/点击下方来源/);
+  const line=metroAnswer("南京地铁1号线图");assert.equal(new URL(line.images[0].url,"https://example.com").searchParams.get("line"),"1号线");
+  const followup=metroAnswer("我要直接出图片，不要点击链接",[{role:"user",content:"南京市地铁图"},{role:"assistant",content:city.answer}]);assert.equal(followup.images[0].url,city.images[0].url);
+  for(const c of metroCatalogue().cities.filter(c=>c.status==="available"))assert.ok(metroAnswer(c.city+"地铁线路图").images[0]);
+  assert.ok(!metroAnswer("保定地铁图").images);
+});
