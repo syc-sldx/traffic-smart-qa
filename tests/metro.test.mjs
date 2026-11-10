@@ -40,6 +40,7 @@ test("annual statistics, knowledge definitions, walking and ordinary-address que
 test("line browsing, station membership, same-station routes and historical context are supported",()=>{
   const line=metroAnswer("南京地铁1号线有哪些站");assert.ok(line.rows.some(r=>r[3]==="南京南站"));assert.ok(line.rows.some(r=>r[3]==="新街口"));
   const station=metroAnswer("南京南站有几条线");assert.match(station.answer,/1号线/);assert.match(station.answer,/3号线/);
+  assert.match(metroAnswer("南京南站").answer,/1号线/);assert.equal(metroAnswer("南京"),null);
   const same=metroAnswer("南京南站怎么去南京南站");assert.equal(same.metro_route.stops,0);
   const context=metroAnswer("1号线有哪些站",[{role:"user",content:"南京地铁图"}]);assert.ok(context.rows.length>=30);
 });

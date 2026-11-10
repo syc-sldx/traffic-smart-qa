@@ -96,7 +96,7 @@ export function metroAnswer(question:string,history:any[]=[],details:Record<stri
     const instructions=route.segments.map((s,i)=>(i+1)+". 在“"+s.origin+"”乘坐"+s.line+"（"+s.direction+"），乘坐 "+s.stops+" 站，在“"+s.destination+"”下车。\n途经："+s.stations.join(" → ")).join("\n\n");
     return {...response(city),answer:intro+(instructions?"\n\n"+instructions:""),metro_route:route,columns:["分段","线路","方向","上车站","下车站","乘坐站数"],rows:route.segments.map((s,i)=>[i+1,s.line,s.direction,s.origin,s.destination,s.stops]),notice:"按换乘较少、再按站数较少计算的静态参考路线。抓取于 "+dataset.retrieved_at.slice(0,10)+"；不含临时停运、班次、票价、出站换乘和贯通车保证，请以运营方现场信息为准。"};
   }
-  if(!requested)return null;
+  if(!requested&&(!/站[？?]?$/.test(question)||!findMetroStations(city,question).length))return null;
   const mapQuestion=/地铁图|线路图|线网图/.test(question);
   const lineToken=question.match(/(?:[Ss]\d+号?线|\d+号线)/)?.[0]?.toUpperCase().replace(/^(S\d+)线$/,"$1号线");
   const selected=lineToken?index.network.lines.filter(l=>l.name.toUpperCase().split(/[（(]/)[0]===lineToken):index.network.lines.filter(l=>question.includes(l.name));
