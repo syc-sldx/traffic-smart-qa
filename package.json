@@ -1,0 +1,13 @@
+{
+  "name": "traffic-smart-qa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24.0.0"},
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node runtime.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {"esbuild": "0.28.0"}
+}
