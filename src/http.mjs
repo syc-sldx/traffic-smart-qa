@@ -8,11 +8,13 @@ import {canReadReport,publicRateLimit} from "../server/public-access.ts";
 import {HTML} from "../server/ui.ts";
 import documents from "../server/knowledge.json";
 import annualData from "../server/annual-data.json";
+import {metroCatalogue,metroNetwork,metroStations} from "../server/metro.ts";
 
 const directory=fileURLToPath(new URL(".",import.meta.url));
 const db=openDatabase(resolve(process.env.DATABASE_PATH||"./data/traffic.db"),resolve(directory,"drizzle"));
 const env={DB:db,AMAP_API_KEY:process.env.AMAP_API_KEY||"",LLM_API_KEY:process.env.LLM_API_KEY||"",LLM_BASE_URL:process.env.LLM_BASE_URL||"https://api.deepseek.com",LLM_MODEL:process.env.LLM_MODEL||"deepseek-flash"};
 const proxyHops=Number(process.env.TRUST_PROXY_HOPS||0);
+const metroMetadata=metroCatalogue();
 if(!Number.isInteger(proxyHops)||proxyHops<0)throw new Error("TRUST_PROXY_HOPS 必须为非负整数");
 await ensureSeed(db);
 
@@ -36,7 +38,18 @@ async function route(request){
   if(request.method==="GET"){
     if(url.pathname==="/"||url.pathname==="/index.html")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
     if(url.pathname==="/healthz")return json({ok:true});
-    if(url.pathname==="/api/status")return json({llm:!!env.LLM_API_KEY,model:env.LLM_MODEL,maps:!!env.AMAP_API_KEY,knowledge_chunks:documents.length,annual_records:annualData.summary.records,annual_cities:Object.keys(annualData.summary.cities),annual_years:Object.keys(annualData.summary.years),domains:["auto","data","knowledge","travel"],cloud:true,public_access:true});
+    if(url.pathname==="/api/metro/cities")return json(metroCatalogue());
+    if(url.pathname==="/api/metro/network"){
+      const city=url.searchParams.get("city")||"";
+      if(city.length>30)return json({error:"城市名称过长。"},400);
+      const network=metroNetwork(city);return network?json(network):json({error:"当前未收录该城市独立线网，不代表当地没有轨道交通。"},404);
+    }
+    if(url.pathname==="/api/metro/stations"){
+      const city=url.searchParams.get("city")||"",q=url.searchParams.get("q")||"";
+      if(city.length>30||q.length>100)return json({error:"查询参数过长。"},400);
+      return json({city,stations:metroStations(city,q)});
+    }
+    if(url.pathname==="/api/status")return json({llm:!!env.LLM_API_KEY,model:env.LLM_MODEL,maps:!!env.AMAP_API_KEY,knowledge_chunks:documents.length,annual_records:annualData.summary.records,annual_cities:Object.keys(annualData.summary.cities),annual_years:Object.keys(annualData.summary.years),metro:{...metroMetadata.summary,retrieved_at:metroMetadata.retrieved_at},domains:["auto","data","knowledge","travel"],cloud:true,public_access:true});
     if(/^\/reports\/[a-zA-Z0-9-]+$/.test(url.pathname)){
       const report=await db.prepare("SELECT html,owner FROM reports WHERE id=?").bind(url.pathname.slice(9)).first();
       if(!report||!await canReadReport(report.owner,null,url.searchParams.get("token")))return json({error:"报告不存在或无权访问。"},404);

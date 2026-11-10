@@ -25,6 +25,7 @@ export function parseTravel(question:string,history:any[]=[]):Record<string,stri
   const c=q.match(/(?:城市[：:]|^)([\u4e00-\u9fff]{2,8}?)(?:市)?(?:[，,:：]|从)/);
   if(c)slots.city=c[1];else{const found=cities.filter(c=>q.includes(c));const prefix=q.replace(/^(?:(?:请问|查一下|现在|实时|当前|今天|帮我查|查询|在))+/,'');const leading=found.filter(c=>prefix.startsWith(c));if(leading.length)slots.city=leading.sort((a,b)=>b.length-a.length)[0];else if(found.length===1)slots.city=found[0];}
   const m=q.match(/从(.+?)(?:到|去)(.+?)(?=怎么|如何|驾车|开车|步行|走路|坐|乘|[，。？?]|$)/);if(m)Object.assign(slots,{origin:m[1],destination:m[2],action:"route"});
+  if(!m){const natural=q.match(/^(.+?)(?:怎么去|如何去|怎么到|如何到)(.+?)(?=[，。？?]|$)/);if(natural)Object.assign(slots,{origin:natural[1],destination:natural[2],action:"route"});}
   if(/步行|走路/.test(q))slots.transport="walking";else if(/地铁|公交|换乘/.test(q))slots.transport="transit";else if(/驾车|开车|自驾/.test(q))slots.transport="driving";
   const road=q.match(/(?:道路|路名)[：:](.+?)(?=[，。？?]|$)/);
   if(road)Object.assign(slots,{road:road[1],action:"traffic"});

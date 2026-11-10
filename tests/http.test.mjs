@@ -38,6 +38,11 @@ test("public HTTP service seeds data, validates requests, isolates reports and r
     const status=await(await fetch(base+"/api/status")).json();assert.equal(status.public_access,true);assert.equal(status.annual_records,167);assert.equal(status.llm,false);assert.equal(status.maps,false);assert.ok(!("LLM_API_KEY" in status));
     let result=await post({message:"2025年南京地铁客运量是多少"});assert.equal(result.status,200);assert.equal((await result.json()).rows[0][4],113400);
     result=await post({message:"2026年3月南京日均客流是多少"});assert.equal((await result.json()).rows[0][4],343.7);
+    const catalogue=await(await fetch(base+"/api/metro/cities")).json();assert.equal(catalogue.cities.length,101);assert.equal(catalogue.summary.network_cities,48);
+    const network=await(await fetch(base+"/api/metro/network?city="+encodeURIComponent("南京"))).json();assert.ok(network.station_count>200);assert.ok(network.lines.some(l=>l.name==="1号线"));
+    const stops=await(await fetch(base+"/api/metro/stations?city="+encodeURIComponent("南京")+"&q="+encodeURIComponent("新街口"))).json();assert.ok(stops.stations.some(s=>s.name==="新街口"));
+    assert.equal((await fetch(base+"/api/metro/network?city="+encodeURIComponent("保定"))).status,404);
+    result=await post({message:"南京南站怎么去南京新街口站"});const metro=await result.json();assert.equal(metro.engine,"metro");assert.equal(metro.metro_route.stops,8);assert.equal(metro.metro_route.transfers,0);
     assert.equal((await post("not-json")).status,400);
     assert.equal((await post({message:"x",history:[{role:"system",content:"bad"}]})).status,400);
     assert.equal((await post({message:"x".repeat(65000)})).status,413);
