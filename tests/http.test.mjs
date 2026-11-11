@@ -23,7 +23,7 @@ test("SQLite adapter applies migrations once, rolls back batches and persists re
 
 test("public HTTP service seeds data, validates requests, isolates reports and rate limits",async()=>{
   const directory=mkdtempSync(join(tmpdir(),"traffic-qa-test-")),dbPath=join(directory,"traffic.db");
-  const child=spawn(process.execPath,["runtime.mjs"],{cwd:resolve("."),env:{...process.env,PORT:"0",HOST:"127.0.0.1",DATABASE_PATH:dbPath,TRUST_PROXY_HOPS:"0",LLM_API_KEY:"",AMAP_API_KEY:""},stdio:["ignore","pipe","pipe"]});
+  const child=spawn(process.execPath,["runtime.mjs"],{cwd:resolve("."),env:{...process.env,PORT:"0",HOST:"127.0.0.1",DATABASE_PATH:dbPath,TRUST_PROXY_HOPS:"0",AUTH_ENABLED:"false",LLM_API_KEY:"",AMAP_API_KEY:""},stdio:["ignore","pipe","pipe"]});
   let childError="";child.stderr.on("data",c=>childError+=c.toString());
   try{
     const port=await new Promise((resolvePort,reject)=>{
