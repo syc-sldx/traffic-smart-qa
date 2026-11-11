@@ -10,6 +10,7 @@ import documents from "../server/knowledge.json";
 import annualData from "../server/annual-data.json";
 import {metroCatalogue,metroNetwork,metroStations} from "../server/metro.ts";
 import {renderMetroMap} from "../server/metro-map.ts";
+import {pwaAsset} from "../server/pwa.ts";
 
 const directory=fileURLToPath(new URL(".",import.meta.url));
 const db=openDatabase(resolve(process.env.DATABASE_PATH||"./data/traffic.db"),resolve(directory,"drizzle"));
@@ -37,6 +38,7 @@ const json=(value,status=200,headers={})=>Response.json(value,{status,headers:{"
 async function route(request){
   const url=new URL(request.url,"http://localhost");
   if(request.method==="GET"){
+    const asset=pwaAsset(url.pathname);if(asset)return asset;
     if(url.pathname==="/"||url.pathname==="/index.html")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
     if(url.pathname==="/healthz")return json({ok:true});
     if(url.pathname==="/api/metro/cities")return json(metroCatalogue());

@@ -17,6 +17,12 @@ npm start
 
 默认监听 `0.0.0.0:10000`，使用 `PORT` 指定端口。`GET /healthz` 是健康检查。分发包已包含编译后的 `runtime.mjs`，直接 `node runtime.mjs` 即可运行，不需要安装运行时依赖。
 
+## 安装为手机 / 电脑 App
+
+网站已提供 PWA manifest、192/512像素图标、可遮罩图标和iPhone主屏幕图标。访问 HTTPS 网站后，点右上角“安装 App”：安卓及电脑的 Chrome / Edge 可使用浏览器安装窗口或菜单；iPhone / iPad 使用 Safari 的“分享 → 添加到主屏幕”。安装需要用户在自己的设备上确认，网页不能静默安装。安装后以独立窗口运行，保留原有公开问答与地铁图功能。是否提供浏览器原生安装按钮取决于设备、浏览器和其安装条件；没有按钮时仍显示手动步骤。
+
+离线缓存只保存公共界面、安装脚本、manifest和图标。问答、API数据、报告和URL中的提问不写入Service Worker缓存；地铁图与问答仍需联网。新版本按界面及资产内容自动生成缓存版本，打开时检查更新，用户点击“更新 App”后再刷新，避免中途打断正在输入的内容。新实例构建命令保持 `npm run build`，会把安装资产嵌入 `runtime.mjs`；不要跳过构建。图标源文件位于 `public/icons/app.svg`，可运行 `py scripts/build_app_icons.py` 重建PNG图标，无额外Python依赖。
+
 环境变量：
 
 | 名称 | 用途 |

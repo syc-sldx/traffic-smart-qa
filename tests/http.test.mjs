@@ -33,7 +33,15 @@ test("public HTTP service seeds data, validates requests, isolates reports and r
     });
     const base="http://127.0.0.1:"+port;
     const post=body=>fetch(base+"/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:typeof body==="string"?body:JSON.stringify(body)});
-    const home=await fetch(base+"/");assert.equal(home.status,200);assert.ok((await home.text()).includes("公开访问"));
+    const home=await fetch(base+"/");assert.equal(home.status,200);const homepage=await home.text();assert.ok(homepage.includes("公开访问"));assert.match(homepage,/<link rel="manifest" href="\/manifest.webmanifest">/);assert.match(homepage,/安装 App/);
+    const manifestResponse=await fetch(base+"/manifest.webmanifest");assert.match(manifestResponse.headers.get("content-type"),/application\/manifest\+json/);const manifest=await manifestResponse.json();
+    assert.equal(manifest.display,"standalone");assert.equal(manifest.prefer_related_applications,false);assert.ok(new URL(manifest.start_url,base).pathname.startsWith(manifest.scope));
+    for(const icon of manifest.icons){const response=await fetch(base+icon.src);assert.equal(response.status,200);assert.match(response.headers.get("content-type"),/image\/png/);const bytes=Buffer.from(await response.arrayBuffer());assert.equal(bytes.subarray(1,4).toString(),"PNG");assert.equal(bytes.readUInt32BE(16)+"x"+bytes.readUInt32BE(20),icon.sizes);}
+    assert.ok(manifest.icons.some(icon=>icon.sizes==="192x192"));assert.ok(manifest.icons.some(icon=>icon.sizes==="512x512"));assert.ok(manifest.icons.some(icon=>icon.purpose==="maskable"));
+    const apple=await fetch(base+"/icons/apple-touch-icon.png");assert.equal(apple.status,200);
+    const worker=await fetch(base+"/sw.js");assert.equal(worker.status,200);assert.match(worker.headers.get("content-type"),/javascript/);assert.match(worker.headers.get("cache-control"),/no-store/);assert.equal(worker.headers.get("service-worker-allowed"),"/");assert.doesNotMatch(await worker.text(),/__APP_VERSION__/);
+    const pwaClient=await fetch(base+"/app/pwa.js");assert.equal(pwaClient.status,200);assert.match(pwaClient.headers.get("content-type"),/javascript/);
+    assert.equal((await fetch(base+"/icons/missing.png")).status,404);
     assert.equal((await fetch(base+"/healthz")).status,200);
     const status=await(await fetch(base+"/api/status")).json();assert.equal(status.public_access,true);assert.equal(status.annual_records,167);assert.equal(status.llm,false);assert.equal(status.maps,false);assert.ok(!("LLM_API_KEY" in status));
     let result=await post({message:"2025年南京地铁客运量是多少"});assert.equal(result.status,200);assert.equal((await result.json()).rows[0][4],113400);

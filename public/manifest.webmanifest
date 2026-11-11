@@ -1,0 +1,24 @@
+{
+  "id": "/",
+  "name": "交通智问 · 城市交通助手",
+  "short_name": "交通智问",
+  "description": "查询交通数据、阅读交通知识、查看地铁图与规划站间换乘。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#10243a",
+  "categories": ["travel", "navigation", "utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    {"src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "地铁线网图", "short_name": "地铁图", "url": "/?q=南京地铁图", "icons": [{"src": "/icons/app-192.png", "sizes": "192x192"}]},
+    {"name": "南京南站到新街口", "short_name": "地铁换乘", "url": "/?q=南京南站怎么去南京新街口站"}
+  ]
+}
