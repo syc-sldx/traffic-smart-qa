@@ -1,9 +1,11 @@
 (()=>{
   'use strict';
   const get=id=>document.getElementById(id),input=get('q'),mic=get('voice-input'),label=get('voice-input-label'),status=get('voice-status');
-  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const synth=window.speechSynthesis,canRead=!!synth&&typeof window.SpeechSynthesisUtterance==='function';
+  const native=window.TrafficAndroidVoice;
+  const Recognition=native?.Recognition||window.SpeechRecognition||window.webkitSpeechRecognition;
+  const synth=native?.synthesis||window.speechSynthesis,Utterance=native?.Utterance||window.SpeechSynthesisUtterance,canRead=!!synth&&typeof Utterance==='function';
   const canListen=!!Recognition&&window.isSecureContext;
+  if(native&&get('voice-provider-note'))get('voice-provider-note').textContent='识别与朗读使用手机系统语音服务，可能联网处理；交通智问不保存录音。请核对站名后发送。系统未提供识别服务时，可用键盘麦克风输入。';
   let busy=!!get('go').disabled,recognition=null,inputToken=0,inputTimer=null,writing=false,reading=null,readToken=0;
   const fallback='此浏览器暂不支持语音识别，可用手机键盘上的麦克风输入文字。';
   function micState(state){
@@ -47,7 +49,7 @@
       if(token!==inputToken)return;failed=true;
       const messages={
         'not-allowed':'麦克风未获授权。请在浏览器的站点权限中允许麦克风，然后重试。',
-        'service-not-allowed':'当前浏览器或设备不允许使用语音识别，可改用手机键盘麦克风。',
+        'service-not-allowed':'当前设备未提供可用的语音识别服务，可改用手机键盘麦克风。',
         'audio-capture':'未能使用麦克风，请检查设备连接及麦克风权限。',
         'network':'未能连接浏览器的语音识别服务，请检查网络，或改用手机键盘麦克风。',
         'no-speech':'没有听到清晰语音，请再试一次。',
@@ -91,8 +93,8 @@
       let index=0;
       const next=()=>{
         if(token!==readToken||!reading)return;
-        if(index>=chunks.length){reading=null;button.textContent='朗读回答';button.setAttribute('aria-pressed','false');note.textContent='';return;}
-        const utterance=new window.SpeechSynthesisUtterance(chunks[index++]);utterance.lang='zh-CN';utterance.rate=1;
+        if(index>=chunks.length){reading=null;button.textContent='朗读回答';button.setAttribute('aria-pressed','false');note.textContent='';synth.endSession?.();return;}
+        const utterance=new Utterance(chunks[index++]);utterance.lang='zh-CN';utterance.rate=1;
         const voices=synth.getVoices(),voice=voices.find(v=>/^zh[-_]CN$/i.test(v.lang))||voices.find(v=>/^zh/i.test(v.lang));if(voice)utterance.voice=voice;
         reading.utterance=utterance;
         utterance.onstart=()=>{if(token===readToken)note.textContent='正在朗读';};

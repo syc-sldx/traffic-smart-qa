@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "version_code": 1,
+  "application_id": "cn.syc.trafficqa",
+  "url": "/downloads/traffic-smart-qa-1.0.0.apk",
+  "size_bytes": 53891,
+  "sha256": "d176e2d5f39b63b1013157fae7ad8f113905b806d0c8cd80fde4d35862aa1e20",
+  "signer_sha256": "45feec1520b906fcf1f8966be814260bb9b16fd41ec1cc23bef453c45341fb04",
+  "minimum_android_api": 23,
+  "target_android_api": 35,
+  "compatibility": "支持安卓APK的鸿蒙系统及Android；鸿蒙NEXT原生版不适用",
+  "requires_network": true,
+  "google_services_required": false
+}

@@ -39,7 +39,7 @@ async function route(request){
   const url=new URL(request.url,"http://localhost");
   if(request.method==="GET"){
     const asset=pwaAsset(url.pathname);if(asset)return asset;
-    if(url.pathname==="/"||url.pathname==="/index.html")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
+    if(url.pathname==="/"||url.pathname==="/index.html")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","content-security-policy":"frame-src 'none'; object-src 'none'; base-uri 'self'"}});
     if(url.pathname==="/healthz")return json({ok:true});
     if(url.pathname==="/api/metro/cities")return json(metroCatalogue());
     if(url.pathname==="/api/metro/map.svg"){

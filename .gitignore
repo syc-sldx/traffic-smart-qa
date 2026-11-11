@@ -8,3 +8,6 @@ outputs/
 *.db-*
 *.log
 runtime.mjs
+*.jks
+*.p12
+*.keystore

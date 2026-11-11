@@ -7,6 +7,7 @@ export function pwaAsset(path:string):Response|null{
   return new Response(asset.encoding==="base64"?Buffer.from(asset.body,"base64"):asset.body,{headers:{
     "content-type":asset.content_type,
     "cache-control":script?"no-store, no-cache, must-revalidate":path.startsWith("/icons/")?"public, max-age=86400":"no-cache",
-    ...(script?{"service-worker-allowed":"/"}:{})
+    ...(script?{"service-worker-allowed":"/"}:{}),
+    ...(path.endsWith(".apk")?{"content-disposition":'attachment; filename="traffic-smart-qa-1.0.0.apk"',"cache-control":"public, max-age=3600"}:{})
   }});
 }

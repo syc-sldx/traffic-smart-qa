@@ -2,7 +2,7 @@
   'use strict';
   const get=id=>document.getElementById(id),dialog=get('install-dialog');
   const display=matchMedia('(display-mode: standalone)'),fullscreen=matchMedia('(display-mode: fullscreen)');
-  const installed=()=>display.matches||fullscreen.matches||navigator.standalone===true;
+  const installed=()=>display.matches||fullscreen.matches||navigator.standalone===true||/TrafficQAAndroid\//.test(navigator.userAgent);
   let deferredPrompt=null,registration=null,applyingUpdate=false;
   function showInstalled(){
     get('install-app').hidden=installed();
@@ -13,7 +13,7 @@
     document.querySelectorAll('[data-install-guide]').forEach(guide=>guide.hidden=guide.dataset.installGuide!==value);
   }
   get('install-app').onclick=()=>{
-    platform(/iPhone|iPad|iPod/.test(navigator.userAgent)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?'ios':/Android/.test(navigator.userAgent)?'android':'desktop');
+    platform(/iPhone|iPad|iPod/.test(navigator.userAgent)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?'ios':/Android|Huawei|HarmonyOS|OpenHarmony/i.test(navigator.userAgent)?'android':'desktop');
     get('install-result').textContent='';
     get('install-now').hidden=!deferredPrompt;
     dialog.showModal();
