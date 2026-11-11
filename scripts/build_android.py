@@ -17,8 +17,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "outputs/android-toolchain"
-VERSION = "1.0.0"
-VERSION_CODE = 1
+VERSION = "1.1.0"
+VERSION_CODE = 2
 
 
 def choose(variable, pattern):
@@ -99,11 +99,14 @@ def main():
     assert "cn.syc.trafficqa" in badging and "versionName='" + VERSION + "'" in badging
     assert "android.permission.RECORD_AUDIO" in badging and "android.permission.INTERNET" in badging
     permissions = set(re.findall(r"uses-permission: name='([^']+)'", badging))
-    assert permissions == {"android.permission.RECORD_AUDIO", "android.permission.INTERNET"}, permissions
+    assert permissions == {"android.permission.RECORD_AUDIO", "android.permission.INTERNET", "android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"}, permissions
     with zipfile.ZipFile(apk) as archive:
         assert "classes.dex" in archive.namelist() and "AndroidManifest.xml" in archive.namelist()
         assert not any(name.endswith((".jks", ".p12", ".keystore", ".json")) for name in archive.namelist())
     fingerprint = re.search(r"certificate SHA-256 digest: ([0-9a-f]+)", verification).group(1)
+    previous_metadata=ROOT / "public/android-release.json"
+    if previous_metadata.exists():
+        assert json.loads(previous_metadata.read_text(encoding="utf-8"))["signer_sha256"]==fingerprint,"Release signing identity changed; restore the original signing key."
     metadata = {"version": VERSION, "version_code": VERSION_CODE, "application_id": "cn.syc.trafficqa", "url": "/downloads/" + apk.name, "size_bytes": apk.stat().st_size, "sha256": hashlib.file_digest(apk.open("rb"), "sha256").hexdigest(), "signer_sha256": fingerprint, "minimum_android_api": 23, "target_android_api": 35, "compatibility": "支持安卓APK的鸿蒙系统及Android；鸿蒙NEXT原生版不适用", "requires_network": True, "google_services_required": False}
     (ROOT / "public/android-release.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (parent / "verification.txt").write_text(verification + "\n" + badging, encoding="utf-8")

@@ -7,6 +7,9 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.net.http.SslError;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +24,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.PermissionRequest;
+import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebMessage;
@@ -47,6 +51,7 @@ import org.json.JSONObject;
 public final class MainActivity extends Activity {
   private static final String ORIGIN="https://traffic-smart-qa.onrender.com";
   private static final int MICROPHONE_PERMISSION=41;
+  private static final int LOCATION_PERMISSION=42;
   private final Handler main=new Handler(Looper.getMainLooper());
   private WebView web;
   private LinearLayout errorPanel;
@@ -58,6 +63,10 @@ public final class MainActivity extends Activity {
   private boolean foreground=false,ttsReady=false,ttsFailed=false,destroyed=false,loadFailed=false;
   private long lastTouch=0;
   private long speechSessionUntil=0;
+  private LocationManager locationManager;
+  private LocationListener locationListener;
+  private Location bestLocation;
+  private String locationId="",pendingLocationId="";
 
   private static boolean trusted(String value) {
     return UrlPolicy.trusted(value);
@@ -73,7 +82,7 @@ public final class MainActivity extends Activity {
     WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);
     settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);settings.setMediaPlaybackRequiresUserGesture(true);
-    settings.setUserAgentString(settings.getUserAgentString()+" TrafficQAAndroid/1.0.0");
+    settings.setUserAgentString(settings.getUserAgentString()+" TrafficQAAndroid/1.1.0");
     WebView.setWebContentsDebuggingEnabled(false);
     web.setOnTouchListener((view,event)->{if(event.getActionMasked()==MotionEvent.ACTION_UP)lastTouch=SystemClock.elapsedRealtime();return false;});
     web.setWebViewClient(new WebViewClient(){
@@ -141,7 +150,7 @@ public final class MainActivity extends Activity {
     });
   }
   private void disconnect(){
-    pageToken="";pendingRecognitionId="";stopRecognition(false);stopSpeech();
+    pageToken="";pendingRecognitionId="";pendingLocationId="";stopRecognition(false);stopSpeech();stopLocation();
     if(port!=null){try{port.close();}catch(Exception ignored){}port=null;}
   }
   private void emit(String type,String id,String error,String text){
@@ -171,6 +180,12 @@ public final class MainActivity extends Activity {
           speak(id,text,(float)message.optDouble("rate",1),pageToken,0);break;
         case "tts-cancel":stopSpeech();break;
         case "tts-end-session":speechSessionUntil=0;break;
+        case "location-get":
+          if(!foreground||!recentTouch()){locationError(id,1);return;}
+          stopLocation();
+          if(checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){pendingLocationId=id;requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION},LOCATION_PERMISSION);}else beginLocation(id);
+          break;
+        case "location-cancel":if(id.equals(locationId)||id.equals(pendingLocationId)){pendingLocationId="";stopLocation();}break;
         default:break;
       }
     }catch(Exception ignored){}
@@ -205,7 +220,41 @@ public final class MainActivity extends Activity {
   @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){
     super.onRequestPermissionsResult(request,permissions,grants);
     if(request==MICROPHONE_PERMISSION){String id=pendingRecognitionId;pendingRecognitionId="";if(id.isEmpty())return;if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED&&foreground&&connected())beginRecognition(id);else emit("speech-error",id,"not-allowed",null);}
+    if(request==LOCATION_PERMISSION){String id=pendingLocationId;pendingLocationId="";if(id.isEmpty())return;if(foreground&&connected()&&(checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED))beginLocation(id);else locationError(id,1);}
   }
+  private void beginLocation(String id){
+    if(!foreground||!connected())return;
+    try{
+      locationManager=(LocationManager)getSystemService(LOCATION_SERVICE);locationId=id;bestLocation=null;
+      boolean fine=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
+      ArrayList<String> providers=new ArrayList<>();
+      if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER))providers.add(LocationManager.NETWORK_PROVIDER);
+      if(fine&&locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))providers.add(LocationManager.GPS_PROVIDER);
+      if(providers.isEmpty()){locationError(id,2);stopLocation();return;}
+      locationListener=new LocationListener(){
+        @Override public void onLocationChanged(Location value){
+          if(!id.equals(locationId)||System.currentTimeMillis()-value.getTime()>120000)return;
+          if(bestLocation==null||value.getAccuracy()<bestLocation.getAccuracy())bestLocation=value;
+          if(value.hasAccuracy()&&value.getAccuracy()<=1500)finishLocation(id,value);
+        }
+        @Override public void onStatusChanged(String provider,int status,Bundle extra){}
+        @Override public void onProviderEnabled(String provider){}
+        @Override public void onProviderDisabled(String provider){}
+      };
+      for(String provider:providers){
+        try{Location last=locationManager.getLastKnownLocation(provider);if(last!=null&&System.currentTimeMillis()-last.getTime()<=120000&&last.hasAccuracy()&&last.getAccuracy()<=1500){finishLocation(id,last);return;}}catch(SecurityException ignored){}
+        try{locationManager.requestLocationUpdates(provider,0,0,locationListener,Looper.getMainLooper());}catch(SecurityException ignored){}
+      }
+      main.postDelayed(()->{if(id.equals(locationId)){if(bestLocation!=null)finishLocation(id,bestLocation);else{locationError(id,3);stopLocation();}}},20000);
+    }catch(Exception ignored){locationError(id,2);stopLocation();}
+  }
+  private void finishLocation(String id,Location value){
+    final double latitude=value.getLatitude(),longitude=value.getLongitude(),accuracy=value.hasAccuracy()?value.getAccuracy():100000;
+    stopLocation();
+    main.post(()->{if(!connected()||!foreground)return;try{JSONObject message=new JSONObject();message.put("type","location-result");message.put("id",id);message.put("latitude",latitude);message.put("longitude",longitude);message.put("accuracy",accuracy);message.put("timestamp",value.getTime());port.postMessage(new WebMessage(message.toString()));}catch(Exception ignored){}});
+  }
+  private void locationError(String id,int code){main.post(()->{if(!connected())return;try{JSONObject message=new JSONObject();message.put("type","location-error");message.put("id",id);message.put("code",code);port.postMessage(new WebMessage(message.toString()));}catch(Exception ignored){}});}
+  private void stopLocation(){locationId="";bestLocation=null;if(locationManager!=null&&locationListener!=null){try{locationManager.removeUpdates(locationListener);}catch(Exception ignored){}}locationListener=null;}
   private void speak(String id,String text,float rate,String token,int attempts){
     if(!token.equals(pageToken)||!connected()||!foreground)return;
     if(attempts>0&&!id.equals(speechId))return;
@@ -218,7 +267,7 @@ public final class MainActivity extends Activity {
   }
   private void stopSpeech(){speechId="";speechSessionUntil=0;if(speaker!=null)speaker.stop();}
   @Override protected void onStart(){super.onStart();foreground=true;}
-  @Override protected void onStop(){foreground=false;pendingRecognitionId="";stopRecognition(true);stopSpeech();super.onStop();}
+  @Override protected void onStop(){foreground=false;pendingRecognitionId="";pendingLocationId="";if(!locationId.isEmpty())locationError(locationId,2);stopLocation();stopRecognition(true);stopSpeech();CookieManager.getInstance().flush();super.onStop();}
   @Override public void onBackPressed(){
     web.evaluateJavascript("(function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}return false;})()",result->{if(!"true".equals(result)){if(web.canGoBack())web.goBack();else moveTaskToBack(true);}});
   }

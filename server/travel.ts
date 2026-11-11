@@ -1,4 +1,5 @@
 import {cities} from "./database";
+import {coordinate} from "./location.mjs";
 const names:Record<string,string>={driving:"驾车",walking:"步行",transit:"公交地铁"};
 const doc="https://lbs.amap.com/api/webservice/guide/api/direction";
 function num(value:any,div=1){if(value===null||value===undefined||value===""||Array.isArray(value))return null;const n=Number(value);return Number.isFinite(n)?Math.round(n/div*10)/10:null;}
@@ -47,7 +48,9 @@ export async function travelAnswer(env:Cloudflare.Env,q:string,history:any[],det
       const statuses:Record<string,string>={"0":"未知","1":"畅通","2":"缓行","3":"拥堵"};
       Object.assign(out,{answer:`${slots.city}${slots.road}：${info.description||"分路段状态见下表。"}\n来源：高德交通态势。查询时间不等于供应商观测时间，接口未提供观测时刻时不推测更新时间。`,columns:["道路","方向","状态","车速（公里/小时）"],rows:(info.roads||[]).map((r:any)=>[r.name||slots.road,r.direction||"未提供",statuses[String(r.status)]||"未知",num(r.speed)])});
     }else{
-      const start=await geocode(env,slots.origin,slots.city),end=await geocode(env,slots.destination,slots.city);
+      if(/^(?:我的位置|当前位置)$/.test(slots.origin)&&!details.origin_location)return {...out,needs_input:true,answer:"请重新定位并设置起点，或手动填写起点地址。历史定位坐标不会自动沿用。"};
+      const point=details.origin_location?coordinate(details.origin_location):null;
+      const start=point?{location:point.text,formatted_address:"当前位置（本次定位）"}:await geocode(env,slots.origin,slots.city),end=await geocode(env,slots.destination,slots.city);
       const params:Record<string,string>={origin:start.location,destination:end.location};if(slots.transport==="transit")Object.assign(params,{city:slots.city,cityd:end.citycode||slots.city,extensions:"all"});
       const data=await mapRequest(env,slots.transport==="transit"?"direction/transit/integrated":"direction/"+slots.transport,params);
       const paths=(slots.transport==="transit"?data.route?.transits:data.route?.paths)||[];if(!paths.length)throw new Error("地图接口没有返回可用路线，请检查地址或换一种出行方式。");

@@ -6,14 +6,21 @@
 
 运行 `py scripts/build_android.py`，需要 JDK、Android 35 的 android.jar 和 Android 35 Build Tools；脚本默认从被忽略的 `outputs/android-toolchain/` 寻找，也可用脚本中注明的环境变量指定工具文件。当前工具取自 Android 官方仓库与 Eclipse Temurin 官方发行包，下载大小和校验值保存在本机 `outputs/android-toolchain/downloads.json`。不使用 Gradle、第三方 Android 库或运行时下载代码编译器。
 
-脚本执行 Java 编译、D8、资源打包、zipalign、APK v1/v2/v3 签名与验证，输出 `public/downloads/traffic-smart-qa-1.0.0.apk` 和不含私钥的 `public/android-release.json`。发布前后均核对 SHA-256、签名指纹与版本信息。后续升级需要提高 AndroidManifest 的 versionCode 与构建脚本版本，并在网站构建路由中加入对应的新安装包。
+脚本执行 Java 编译、D8、资源打包、zipalign、APK v1/v2/v3 签名与验证，输出 `public/downloads/traffic-smart-qa-1.1.0.apk` 和不含私钥的 `public/android-release.json`。发布前后均核对 SHA-256、签名指纹与版本信息。后续升级需要提高 AndroidManifest 的 versionCode 与构建脚本版本，并在网站构建路由中加入对应的新安装包。
 
 **保留本机 `outputs/android-signing/` 中的发布签名文件和凭据，后续更新必须沿用同一个签名身份。** 此目录被 Git 忽略并限制为当前用户与 SYSTEM 访问；密码仅通过子进程环境变量传入签名工具。不要上传该目录、私钥或密码到公开仓库、下载页或云环境。新的构建电脑需要安全迁移原签名目录，不能重新生成另一个同包名签名替换现有安装包。
 
 ## 系统语音和访问边界
 
-原生语音通过 Android 的 SpeechRecognizer 和 TextToSpeech 使用设备默认系统服务，不指定或绑定 Google 服务。语音识别服务是否可用、是否支持普通话、是否联网以及系统中文音色取决于用户手机；没有可调用的识别服务时，保留手机键盘语音输入方式。应用仅声明联网、麦克风两项权限，在用户点击语音输入后申请麦克风，停止或切后台后释放识别器，不持有录音文件。
+原生语音通过 Android 的 SpeechRecognizer 和 TextToSpeech 使用设备默认系统服务，不指定或绑定 Google 服务。语音识别服务是否可用、是否支持普通话、是否联网以及系统中文音色取决于用户手机；没有可调用的识别服务时，保留手机键盘语音输入方式。应用声明联网、麦克风、粗略位置和精确位置四项权限（不申请后台定位）。定位权限仅在点击定位后申请；在用户点击语音输入后申请麦克风，停止或切后台后释放识别器，不持有录音文件。
 
 原生通信通过只转交给 `https://traffic-smart-qa.onrender.com` 主页面的 MessagePort，未使用 addJavascriptInterface。网页响应禁止嵌套 iframe；导航校验 scheme、host、port 和 userinfo，外部 HTTPS 来源链接交给浏览器，证书错误直接取消。录音需要前台状态、最近触摸和运行时授权，迟到回调不会恢复旧输入。朗读长文本按网页分段处理，取消后不会补播延迟任务。
 
 构建时运行 15 个网址边界用例，网页测试验证原生端口协议与取消、签名 APK 的下载 MIME / 附件名 / 哈希和原有功能。尚未在用户提供的华为真机上安装或测试语音服务；编译与签名验证不能替代真机兼容性验证。
+
+
+## 1.1.0 前台定位与账号
+
+versionCode 为2，沿用1.0.0签名，可覆盖安装并保留 WebView 数据。网页中的登录Cookie在切后台时同步到系统Cookie存储；实际历史保存在启用持久盘的服务器，登录同一账号可跨设备同步。
+
+定位由 LocationManager 的 NETWORK/GPS 提供器单次获取，最多等待20秒，优先使用2分钟内的位置并报告精度。只响应受信任主页面的用户操作，前台、近期触摸和系统运行时权限同时满足后才取位置。停止、导航、切后台和超时均撤销监听；不保存位置文件。网页将坐标发给既有高德服务完成GPS到GCJ02转换，再识别城市。使用近似位置或设备未提供位置服务时，仍可手动填写起点。

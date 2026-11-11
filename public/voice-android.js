@@ -3,8 +3,13 @@
   // The APK transfers a MessagePort only to this HTTPS origin's main frame.
   if(!/TrafficQAAndroid\//.test(navigator.userAgent)||location.origin!=='https://traffic-smart-qa.onrender.com')return;
   let port=null,serial=0,currentInput=null,currentSpeech=null,queued=[];
+  const locations=new Map();
   function send(message){if(port)port.postMessage(JSON.stringify(message));else queued.push(message);}
   function deliver(message){
+    if(message.type==='location-result'||message.type==='location-error'){
+      const pending=locations.get(message.id);if(!pending)return;clearTimeout(pending.timer);locations.delete(message.id);
+      if(message.type==='location-result')pending.success({coords:{latitude:message.latitude,longitude:message.longitude,accuracy:message.accuracy},timestamp:message.timestamp});else pending.error({code:message.code||2});return;
+    }
     const input=currentInput,speech=currentSpeech;
     if(message.type.startsWith('speech-')&&input?.id===message.id){
       if(message.type==='speech-start')input.onstart?.();
@@ -38,4 +43,12 @@
     endSession(){send({type:'tts-end-session',id:''});}
   };
   window.TrafficAndroidVoice={Recognition,Utterance,synthesis};
+  const version=navigator.userAgent.match(/TrafficQAAndroid\/(\d+)\.(\d+)/);
+  if(version&&(Number(version[1])>1||Number(version[1])===1&&Number(version[2])>=1)){
+    window.TrafficAndroidLocation={getCurrentPosition(success,error,options={}){
+      const id='location-'+(++serial),cancel=()=>{locations.delete(id);queued=queued.filter(message=>message.id!==id);send({type:'location-cancel',id});};
+      const timer=setTimeout(()=>{if(!locations.has(id))return;cancel();error({code:3});},Math.min(options.timeout||20000,30000));
+      locations.set(id,{success,error,timer});send({type:'location-get',id});return ()=>{clearTimeout(timer);cancel();};
+    }};
+  }
 })();

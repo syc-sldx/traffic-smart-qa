@@ -43,10 +43,13 @@ test("public HTTP service seeds data, validates requests, isolates reports and r
     const pwaClient=await fetch(base+"/app/pwa.js");assert.equal(pwaClient.status,200);assert.match(pwaClient.headers.get("content-type"),/javascript/);
     const voiceClient=await fetch(base+"/app/voice.js");assert.equal(voiceClient.status,200);assert.match(voiceClient.headers.get("content-type"),/javascript/);assert.match(await voiceClient.text(),/SpeechRecognition/);assert.match(homepage,/src="\/app\/voice.js"/);assert.match(homepage,/id="voice-input"/);
     const nativeVoice=await fetch(base+"/app/voice-android.js");assert.equal(nativeVoice.status,200);assert.match(await nativeVoice.text(),/TrafficAndroidVoice/);
-    const release=await(await fetch(base+"/app/android-release.json")).json();const apk=await fetch(base+release.url);assert.equal(apk.status,200);assert.equal(apk.headers.get("content-type"),"application/vnd.android.package-archive");assert.match(apk.headers.get("content-disposition"),/attachment; filename="traffic-smart-qa-1\.0\.0\.apk"/);
+    const release=await(await fetch(base+"/app/android-release.json")).json();const apk=await fetch(base+release.url);assert.equal(apk.status,200);assert.equal(apk.headers.get("content-type"),"application/vnd.android.package-archive");assert.equal(apk.headers.get("content-disposition"),'attachment; filename="'+release.url.split('/').at(-1)+'"');assert.equal(release.version_code,2);
     const apkBytes=Buffer.from(await apk.arrayBuffer());assert.equal(apkBytes.length,release.size_bytes);assert.equal(createHash("sha256").update(apkBytes).digest("hex"),release.sha256);assert.equal(apkBytes.subarray(0,2).toString(),"PK");assert.ok(apkBytes.includes(Buffer.from("APK Sig Block 42")));assert.match(homepage,/下载安卓 APK/);assert.match(home.headers.get("content-security-policy"),/frame-src 'none'/);
     assert.equal((await fetch(base+"/icons/missing.png")).status,404);
     assert.equal((await fetch(base+"/healthz")).status,200);
+    assert.equal((await(await fetch(base+'/api/auth/me')).json()).enabled,false);
+    assert.equal((await fetch(base+'/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'cannot_save',password:'not-a-real-password'})})).status,503);
+    assert.equal((await fetch(base+'/api/location',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({latitude:999,longitude:118,accuracy:30})})).status,400);
     const status=await(await fetch(base+"/api/status")).json();assert.equal(status.public_access,true);assert.equal(status.annual_records,167);assert.equal(status.llm,false);assert.equal(status.maps,false);assert.ok(!("LLM_API_KEY" in status));
     let result=await post({message:"2025年南京地铁客运量是多少"});assert.equal(result.status,200);assert.equal((await result.json()).rows[0][4],113400);
     result=await post({message:"2026年3月南京日均客流是多少"});assert.equal((await result.json()).rows[0][4],343.7);

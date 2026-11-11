@@ -1,0 +1,32 @@
+# Apply only after approving the paid persistence plan for workspace 219318.
+# Adopt the existing traffic-smart-qa service; keep Blueprint autoSync disabled.
+# Existing AMAP_API_KEY and LLM_API_KEY are preserved when omitted.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: traffic-smart-qa
+    runtime: node
+    repo: https://github.com/syc-sldx/traffic-smart-qa
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build && npm test
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: traffic-account-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: DATABASE_PATH
+        value: /var/data/traffic.db
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: PUBLIC_ORIGIN
+        value: https://traffic-smart-qa.onrender.com

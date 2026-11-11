@@ -11,12 +11,15 @@ import annualData from "../server/annual-data.json";
 import {metroCatalogue,metroNetwork,metroStations} from "../server/metro.ts";
 import {renderMetroMap} from "../server/metro-map.ts";
 import {pwaAsset} from "../server/pwa.ts";
+import {createAccounts} from "../server/accounts.mjs";
+import {resolveLocation} from "../server/location.mjs";
 
 const directory=fileURLToPath(new URL(".",import.meta.url));
 const db=openDatabase(resolve(process.env.DATABASE_PATH||"./data/traffic.db"),resolve(directory,"drizzle"));
 const env={DB:db,AMAP_API_KEY:process.env.AMAP_API_KEY||"",LLM_API_KEY:process.env.LLM_API_KEY||"",LLM_BASE_URL:process.env.LLM_BASE_URL||"https://api.deepseek.com",LLM_MODEL:process.env.LLM_MODEL||"deepseek-flash"};
 const proxyHops=Number(process.env.TRUST_PROXY_HOPS||0);
 const metroMetadata=metroCatalogue();
+const accounts=createAccounts({db,enabled:process.env.AUTH_ENABLED==="true",secureCookies:process.env.COOKIE_SECURE!=="false",origin:process.env.PUBLIC_ORIGIN||"https://traffic-smart-qa.onrender.com",address:clientAddress});
 if(!Number.isInteger(proxyHops)||proxyHops<0)throw new Error("TRUST_PROXY_HOPS 必须为非负整数");
 await ensureSeed(db);
 
@@ -58,25 +61,37 @@ async function route(request){
       if(city.length>30||q.length>100)return json({error:"查询参数过长。"},400);
       return json({city,stations:metroStations(city,q)});
     }
-    if(url.pathname==="/api/status")return json({llm:!!env.LLM_API_KEY,model:env.LLM_MODEL,maps:!!env.AMAP_API_KEY,knowledge_chunks:documents.length,annual_records:annualData.summary.records,annual_cities:Object.keys(annualData.summary.cities),annual_years:Object.keys(annualData.summary.years),metro:{...metroMetadata.summary,retrieved_at:metroMetadata.retrieved_at},domains:["auto","data","knowledge","travel"],cloud:true,public_access:true});
+    if(url.pathname==="/api/status")return json({accounts:accounts.enabled,llm:!!env.LLM_API_KEY,model:env.LLM_MODEL,maps:!!env.AMAP_API_KEY,knowledge_chunks:documents.length,annual_records:annualData.summary.records,annual_cities:Object.keys(annualData.summary.cities),annual_years:Object.keys(annualData.summary.years),metro:{...metroMetadata.summary,retrieved_at:metroMetadata.retrieved_at},domains:["auto","data","knowledge","travel"],cloud:true,public_access:true});
+    if(/^\/api\/(?:auth|threads|history|memory)(?:\/|$)/.test(url.pathname))return accounts.route(request,url);
     if(/^\/reports\/[a-zA-Z0-9-]+$/.test(url.pathname)){
       const report=await db.prepare("SELECT html,owner FROM reports WHERE id=?").bind(url.pathname.slice(9)).first();
-      if(!report||!await canReadReport(report.owner,null,url.searchParams.get("token")))return json({error:"报告不存在或无权访问。"},404);
+      const account=await accounts.current(request);
+      if(!report||!await canReadReport(report.owner,account?.id||null,url.searchParams.get("token")))return json({error:"报告不存在或无权访问。"},404);
       return new Response(report.html,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"private, no-store","referrer-policy":"no-referrer"}});
     }
     return json({error:"页面不存在。"},404);
   }
+  if(request.method==="DELETE"&&url.pathname.startsWith('/api/threads/'))return accounts.route(request,url);
   if(request.method!=="POST")return json({error:"不支持该请求方式。"},405);
-  if(!["/api/chat","/api/reset"].includes(url.pathname))return json({error:"接口不存在。"},404);
+  const accountPath=/^\/api\/(?:auth|threads|history|memory)(?:\/|$)/.test(url.pathname);
+  if(!["/api/chat","/api/reset","/api/location"].includes(url.pathname)&&!accountPath)return json({error:"接口不存在。"},404);
   if(Number(request.headers["content-length"]||0)>64000)return json({error:"请求过长。"},413);
   if(url.pathname==="/api/reset")return json({ok:true});
   let body;try{body=JSON.parse(await bodyText(request));}catch(error){return json({error:error.status===413?error.message:"请求格式错误。"},error.status===413?413:400);}
   if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"请求格式错误。"},400);
+  if(accountPath)return accounts.route(request,url,body);
+  if(url.pathname==="/api/location"){
+    const limit=await publicRateLimit(db,new Request("http://localhost/api/location",{headers:{"cf-connecting-ip":clientAddress(request)}}));if(limit)return limit;
+    try{return json(await resolveLocation(env,body));}catch(error){return json({error:error.message||"无法解析定位城市。"},error.status||502);}
+  }
   const q=body.message,mode=body.mode||"auto",history=body.history||[],details=body.travel||{};
   if(typeof q!=="string"||!q.trim()||q.length>8000||!["auto","data","knowledge","travel"].includes(mode)||!Array.isArray(history)||history.some(h=>!h||!["user","assistant"].includes(h.role)||typeof h.content!=="string")||!details||typeof details!=="object"||Array.isArray(details)||Object.values(details).some(v=>typeof v!=="string"||v.length>200))return json({error:"问题或查询参数格式不正确。"},400);
   const limit=await publicRateLimit(db,new Request("http://localhost/api/chat",{headers:{"cf-connecting-ip":clientAddress(request)}}));
   if(limit)return limit;
-  return json(await ask(env,null,q.trim(),history.slice(-12).map(h=>({role:h.role,content:h.content.slice(0,4000)})),mode,details));
+  const account=await accounts.current(request);
+  if(account){try{return json(await accounts.chat(account,q.trim(),mode,details,body.thread_id,body.request_id,(context,slots,notes)=>ask(env,account.id,q.trim(),context,mode,slots,notes)));}catch(error){return json({error:error.status?error.message:"暂时无法保存本次问答，请稍后重试。"},error.status||500);}}
+  if(body.thread_id||body.account_required===true)return json({error:"登录状态已失效，请重新登录后继续这段对话。"},401);
+  return json(await ask(env,null,q.trim(),history.slice(-12).map(h=>({role:h.role,content:h.content.slice(0,2000)})),mode,details));
 }
 const server=createServer({maxHeaderSize:16384,requestTimeout:30000,headersTimeout:15000},async(request,response)=>{
   try{

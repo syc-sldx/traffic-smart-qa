@@ -8,8 +8,11 @@ const sources={
   "/app/pwa.js":["public/pwa.js","text/javascript; charset=utf-8"],
   "/app/voice-android.js":["public/voice-android.js","text/javascript; charset=utf-8"],
   "/app/voice.js":["public/voice.js","text/javascript; charset=utf-8"],
+  "/app/history.js":["public/history.js","text/javascript; charset=utf-8"],
+  "/app/location.js":["public/location.js","text/javascript; charset=utf-8"],
   "/app/android-release.json":["public/android-release.json","application/json; charset=utf-8"],
   "/downloads/traffic-smart-qa-1.0.0.apk":["public/downloads/traffic-smart-qa-1.0.0.apk","application/vnd.android.package-archive"],
+  "/downloads/traffic-smart-qa-1.1.0.apk":["public/downloads/traffic-smart-qa-1.1.0.apk","application/vnd.android.package-archive"],
   "/icons/app.svg":["public/icons/app.svg","image/svg+xml"],
   ...Object.fromEntries(["app-192.png","app-512.png","app-maskable-512.png","apple-touch-icon.png"].map(name=>["/icons/"+name,["public/icons/"+name,"image/png"]]))
 };

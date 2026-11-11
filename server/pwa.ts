@@ -8,6 +8,6 @@ export function pwaAsset(path:string):Response|null{
     "content-type":asset.content_type,
     "cache-control":script?"no-store, no-cache, must-revalidate":path.startsWith("/icons/")?"public, max-age=86400":"no-cache",
     ...(script?{"service-worker-allowed":"/"}:{}),
-    ...(path.endsWith(".apk")?{"content-disposition":'attachment; filename="traffic-smart-qa-1.0.0.apk"',"cache-control":"public, max-age=3600"}:{})
+    ...(path.endsWith(".apk")?{"content-disposition":'attachment; filename="'+path.split('/').at(-1)+'"',"cache-control":"public, max-age=3600"}:{})
   }});
 }
