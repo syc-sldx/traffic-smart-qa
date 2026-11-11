@@ -6,6 +6,7 @@ const sources={
   "/manifest.webmanifest":["public/manifest.webmanifest","application/manifest+json; charset=utf-8"],
   "/sw.js":["public/sw.js","text/javascript; charset=utf-8"],
   "/app/pwa.js":["public/pwa.js","text/javascript; charset=utf-8"],
+  "/app/voice.js":["public/voice.js","text/javascript; charset=utf-8"],
   "/icons/app.svg":["public/icons/app.svg","image/svg+xml"],
   ...Object.fromEntries(["app-192.png","app-512.png","app-maskable-512.png","apple-touch-icon.png"].map(name=>["/icons/"+name,["public/icons/"+name,"image/png"]]))
 };

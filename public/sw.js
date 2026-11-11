@@ -1,7 +1,7 @@
 /* Only the public app shell is cached. Queries, reports and API data stay online. */
 const CACHE_PREFIX='traffic-smart-qa-shell-';
 const CACHE_NAME=CACHE_PREFIX+'__APP_VERSION__';
-const SHELL=['/','/manifest.webmanifest','/app/pwa.js','/icons/app.svg','/icons/app-192.png','/icons/app-512.png','/icons/app-maskable-512.png','/icons/apple-touch-icon.png'];
+const SHELL=['/','/manifest.webmanifest','/app/pwa.js','/app/voice.js','/icons/app.svg','/icons/app-192.png','/icons/app-512.png','/icons/app-maskable-512.png','/icons/apple-touch-icon.png'];
 const STATIC=new Set(SHELL.filter(path=>path!=='/'));
 
 self.addEventListener('install',event=>{

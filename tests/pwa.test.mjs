@@ -28,6 +28,7 @@ test("offline shell remains available while questions, reports and API data neve
   assert.equal(await request("/",{method:"POST"}),null);
   online=false;assert.equal(await(await request("/?q=private-question")).text(),"public shell /");
   assert.equal(await(await request("/app/pwa.js",{mode:"cors"})).text(),"public shell /app/pwa.js");
+  assert.equal(await(await request("/app/voice.js",{mode:"cors"})).text(),"public shell /app/voice.js");
   online=true;assert.equal(await(await request("/?q=private-question")).text(),"fresh public interface");
   const current=[...stores.keys()].find(name=>name.startsWith("traffic-smart-qa-shell-"));
   assert.equal(await stores.get(current).get("/").clone().text(),"public shell /");
