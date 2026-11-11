@@ -1,5 +1,5 @@
 export function coordinate(value){
-  if(typeof value!=='string'||!/^[-+]?\d{1,3}(?:\.\d{1,8})?,[-+]?\d{1,2}(?:\.\d{1,8})?$/.test(value))throw Object.assign(new Error('坐标格式不正确。'),{status:400});
+  if(typeof value!=='string'||!/^[-+]?\d{1,3}(?:\.\d{1,15})?,[-+]?\d{1,2}(?:\.\d{1,15})?$/.test(value))throw Object.assign(new Error('坐标格式不正确。'),{status:400});
   const [longitude,latitude]=value.split(',').map(Number);if(!Number.isFinite(longitude)||!Number.isFinite(latitude)||Math.abs(longitude)>180||Math.abs(latitude)>90)throw Object.assign(new Error('坐标超出有效范围。'),{status:400});
   return {longitude,latitude,text:longitude.toFixed(6)+','+latitude.toFixed(6)};
 }

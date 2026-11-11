@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 
 test('GPS is converted before city lookup and direct-admin city arrays are normalized',async()=>{
-  const calls=[];const request=async url=>{calls.push(url);return Response.json(calls.length===1?{status:'1',locations:'121.400100,31.200100'}:{status:'1',regeocode:{addressComponent:{province:'上海市',city:[],district:'徐汇区'}}});};
+  const calls=[];const request=async url=>{calls.push(url);return Response.json(calls.length===1?{status:'1',locations:'121.400100123456,31.200100123456'}:{status:'1',regeocode:{addressComponent:{province:'上海市',city:[],district:'徐汇区'}}});};
   const r=await resolveLocation({AMAP_API_KEY:'fixture-key'},{latitude:31.2,longitude:121.4,accuracy:40},request);assert.equal(r.city,'上海');assert.equal(r.coordinate_system,'gcj02');assert.equal(r.route_usable,true);assert.equal(calls[0].searchParams.get('coordsys'),'gps');assert.equal(calls[1].searchParams.get('location'),'121.400100,31.200100');assert.ok(!('formatted_address' in r));
   await assert.rejects(resolveLocation({AMAP_API_KEY:'fixture-key'},{latitude:999,longitude:118,accuracy:2},request),{status:400});assert.equal(calls.length,2);assert.throws(()=>coordinate('118,32|1,2'),{status:400});assert.throws(()=>coordinate('181,32'),{status:400});
 });
