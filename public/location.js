@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   const get=id=>document.getElementById(id);let current=null,generation=0,cancel=null;
-  function clear(){generation++;cancel?.();cancel=null;current=null;get('location-origin').hidden=true;get('location-clear').hidden=true;get('location-status').textContent='仅在点击后获取；定位坐标不写入账号记忆。';get('locate').disabled=false;}
+  function clear(){generation++;cancel?.();cancel=null;current=null;get('location-origin').hidden=true;get('location-clear').hidden=true;get('location-status').textContent='';get('locate').disabled=false;}
   function valid(){return current&&Date.now()-current.located_at<600000&&current.route_usable;}
   get('location-clear').onclick=clear;
   get('locate').onclick=async()=>{

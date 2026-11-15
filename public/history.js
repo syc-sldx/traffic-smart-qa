@@ -12,8 +12,8 @@
   function lastKey(){return state.user?'trafficqa:last-thread:'+state.user.id:'trafficqa:last-local-thread';}
   function rememberId(){try{if(state.current)localStorage.setItem(lastKey(),state.current);else localStorage.removeItem(lastKey());}catch{}}
   function controls(){
-    get('auth-title').textContent=state.user?'账号与记忆':register?'注册账号':'登录账号';
-    get('account-label').textContent=state.user?state.user.username:'登录同步记录';
+    get('auth-title').textContent=state.user?'账号与记忆':!state.enabled?'账号设置':register?'注册账号':'登录账号';
+    get('account-label').textContent=state.user?state.user.username:state.enabled?'登录账号':'账号设置';
     get('account-form').hidden=!!state.user||!state.enabled;get('memory-settings').hidden=!state.user;
     get('account-storage-note').hidden=state.enabled;
     get('auth-submit').disabled=!state.enabled||state.busy;get('account-open').disabled=state.busy;get('account-logout').hidden=!state.user;get('account-logout').disabled=state.busy;

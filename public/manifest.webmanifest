@@ -8,8 +8,8 @@
   "start_url": "/?source=app",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f7fa",
-  "theme_color": "#10243a",
+  "background_color": "#fafbfc",
+  "theme_color": "#fafbfc",
   "categories": ["travel", "navigation", "utilities"],
   "prefer_related_applications": false,
   "icons": [

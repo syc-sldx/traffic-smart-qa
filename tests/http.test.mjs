@@ -33,13 +33,14 @@ test("public HTTP service seeds data, validates requests, isolates reports and r
     });
     const base="http://127.0.0.1:"+port;
     const post=body=>fetch(base+"/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:typeof body==="string"?body:JSON.stringify(body)});
-    const home=await fetch(base+"/");assert.equal(home.status,200);const homepage=await home.text();assert.ok(homepage.includes("公开访问"));assert.match(homepage,/<link rel="manifest" href="\/manifest.webmanifest">/);assert.match(homepage,/安装 App/);
+    const home=await fetch(base+"/");assert.equal(home.status,200);const homepage=await home.text();assert.ok(homepage.includes("免登录使用"));assert.match(homepage,/<link rel="manifest" href="\/manifest.webmanifest">/);assert.match(homepage,/安装 App/);
     const manifestResponse=await fetch(base+"/manifest.webmanifest");assert.match(manifestResponse.headers.get("content-type"),/application\/manifest\+json/);const manifest=await manifestResponse.json();
     assert.equal(manifest.display,"standalone");assert.equal(manifest.prefer_related_applications,false);assert.ok(new URL(manifest.start_url,base).pathname.startsWith(manifest.scope));
     for(const icon of manifest.icons){const response=await fetch(base+icon.src);assert.equal(response.status,200);assert.match(response.headers.get("content-type"),/image\/png/);const bytes=Buffer.from(await response.arrayBuffer());assert.equal(bytes.subarray(1,4).toString(),"PNG");assert.equal(bytes.readUInt32BE(16)+"x"+bytes.readUInt32BE(20),icon.sizes);}
     assert.ok(manifest.icons.some(icon=>icon.sizes==="192x192"));assert.ok(manifest.icons.some(icon=>icon.sizes==="512x512"));assert.ok(manifest.icons.some(icon=>icon.purpose==="maskable"));
     const apple=await fetch(base+"/icons/apple-touch-icon.png");assert.equal(apple.status,200);
     const worker=await fetch(base+"/sw.js");assert.equal(worker.status,200);assert.match(worker.headers.get("content-type"),/javascript/);assert.match(worker.headers.get("cache-control"),/no-store/);assert.equal(worker.headers.get("service-worker-allowed"),"/");assert.doesNotMatch(await worker.text(),/__APP_VERSION__/);
+    const layout=await fetch(base+"/app/workspace.css");assert.equal(layout.status,200);assert.match(layout.headers.get("content-type"),/text\/css/);assert.match(homepage,/href="\/app\/workspace.css"/);
     const pwaClient=await fetch(base+"/app/pwa.js");assert.equal(pwaClient.status,200);assert.match(pwaClient.headers.get("content-type"),/javascript/);
     const voiceClient=await fetch(base+"/app/voice.js");assert.equal(voiceClient.status,200);assert.match(voiceClient.headers.get("content-type"),/javascript/);assert.match(await voiceClient.text(),/SpeechRecognition/);assert.match(homepage,/src="\/app\/voice.js"/);assert.match(homepage,/id="voice-input"/);
     const nativeVoice=await fetch(base+"/app/voice-android.js");assert.equal(nativeVoice.status,200);assert.match(await nativeVoice.text(),/TrafficAndroidVoice/);
