@@ -2,6 +2,8 @@ import {query} from "./database";
 import {dataAnswer} from "./data";
 import {knowledgeAnswer} from "./knowledge";
 import {travelAnswer} from "./travel";
+import {isTravelFollowup,resolveTravel} from "../shared/travel-context.mjs";
+import {cities} from "./database";
 import {modelMessage} from "./model";
 import {annualAnswer} from "./annual";
 import {reportIdentity} from "./public-access";
@@ -9,7 +11,7 @@ import {metroAnswer,isMetroQuery} from "./metro";
 type History={role:string,content:string};
 export function domain(q:string,history:History[],mode:string){
   if(mode!=="auto")return mode;
-  if(isMetroQuery(q))return "travel";
+  if(isMetroQuery(q)||isTravelFollowup(q))return "travel";
   if(/是什么|什么是|定义|含义|原理|概念|知识|政策|法规|规范|标准|智慧交通|数字交通|车路协同|如何统计|应该如何|因果关系|相关性/.test(q))return "knowledge";
   if(/从.+(?:到|去).+|路线|怎么走|怎么坐|怎么去|换乘|(?:实时|现在|当前|今天).*(?:路况|拥堵|堵不堵)/.test(q)||/^(?:那|换成|改成)?(?:步行|走路|驾车|开车|公交|地铁)(?:呢)?[？?]?$/.test(q))return "travel";
   const last=[...history].reverse().find(h=>h.role==="assistant")?.content||"";
@@ -28,8 +30,12 @@ const toolSpecs=[
 const esc=(x:any)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 function makeChart(last:any,args:any){if(!last?.rows?.length)throw new Error("请先查询数据。");if(!["bar","line"].includes(args.kind))throw new Error("仅支持柱状图和折线图。");const x=last.columns.indexOf(args.x),y=last.columns.indexOf(args.y);if(x<0||y<0||last.rows.some((r:any)=>r[y]!==null&&typeof r[y]!=="number"))throw new Error("图表列名或数值类型不正确。");return {tooltip:{trigger:"axis"},grid:{left:70,right:30,bottom:70,top:30},xAxis:{type:"category",data:last.rows.map((r:any)=>r[x]),axisLabel:{rotate:30}},yAxis:{type:"value",name:args.y},series:[{type:args.kind,data:last.rows.map((r:any)=>r[y]),itemStyle:{color:"#79e2c3"}}]};}
 export async function ask(env:Cloudflare.Env,userId:string|null,q:string,history:History[],mode="auto",details:any={},memoryNotes=""){
-  if(details.origin_location&&["auto","travel"].includes(mode))return travelAnswer(env,q,history,details);
-  if(["auto","travel"].includes(mode)||mode==="data"&&isMetroQuery(q)){const metro=metroAnswer(q,history,details);if(metro)return metro;}
+  if(["auto","travel"].includes(mode)){
+    const slots=resolveTravel(q,history,details,cities);
+    if(details.contextual==="true"||isTravelFollowup(q))details={...slots,...(/^(?:我的位置|当前位置)$/.test(slots.origin)&&details.origin_location?{origin_location:details.origin_location}:{})};
+    if(details.origin_location&&/^(?:我的位置|当前位置)$/.test(slots.origin))return travelAnswer(env,q,history,details);
+  }
+  if(["auto","travel"].includes(mode)||mode==="data"&&isMetroQuery(q)){const metro=details.strategy&&details.strategy!=="2"?null:metroAnswer(q,history,details);if(metro)return metro;}
   if(env.DB&&["auto","data"].includes(mode)){const annual=await annualAnswer(env.DB,q,history);if(annual)return annual;}
   const selected=domain(q,history,mode);if(selected==="knowledge")return knowledgeAnswer(env,q,history);if(selected==="travel")return travelAnswer(env,q,history,details);
   if(!env.DB)throw new Error("云端数据库尚未连接。");

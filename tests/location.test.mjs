@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {resolveLocation,coordinate} from '../server/location.mjs';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
+import * as travel from '../shared/travel-context.mjs';
 
 test('GPS is converted before city lookup and direct-admin city arrays are normalized',async()=>{
   const calls=[];const request=async url=>{calls.push(url);return Response.json(calls.length===1?{status:'1',locations:'121.400100123456,31.200100123456'}:{status:'1',regeocode:{addressComponent:{province:'上海市',city:[],district:'徐汇区'}}});};
@@ -14,7 +15,7 @@ const source=await readFile('public/location.js','utf8');
 function client(agent='Browser'){
   let position,error,requested=0,network=0,now=100000,precision=30;
   const nodes=Object.fromEntries(['locate','location-origin','location-clear','location-status','city','origin','destination','action','transport'].map(id=>[id,{value:'',hidden:true,disabled:false,textContent:'',dispatchEvent(){},focus(){}}]));nodes.transport.value='transit';
-  const window={isSecureContext:true,TrafficChat:{setMode(){}},addEventListener(){}};
+  const window={isSecureContext:true,TrafficTravel:travel,TrafficChat:{setMode(){}},addEventListener(){}};
   vm.runInNewContext(source,{window,document:{getElementById:id=>nodes[id]},navigator:{userAgent:agent,geolocation:{getCurrentPosition(success,fail){requested++;position=success;error=fail;}}},Event,Date:{now:()=>now},fetch:async()=>{network++;return Response.json({ok:true,city:'南京',district:'雨花台区',accuracy:precision,located_at:now,location:'118.797000,31.968000',route_usable:precision<=1500});}});
   return {nodes,window,requested:()=>requested,network:()=>network,position:()=>position({coords:{latitude:31.96,longitude:118.79,accuracy:precision}}),deny:()=>error({code:1}),age(){now+=600001;},precision(value){precision=value;}};
 }
@@ -26,4 +27,10 @@ test('denied and cancelled location never produce a route point; old APKs reques
   const h=client();const pending=h.nodes.locate.onclick();h.deny();await pending;assert.match(h.nodes['location-status'].textContent,/权限/);assert.equal(h.network(),0);
   const next=h.nodes.locate.onclick();h.window.TrafficLocation.clear();h.position();await next;assert.equal(h.network(),0);
   const old=client('TrafficQAAndroid/1.0.0');await old.nodes.locate.onclick();assert.equal(old.requested(),0);assert.match(old.nodes['location-status'].textContent,/1\.1\.0/);
+});
+test('named routes and data questions do not reuse GPS, but current-location follow-ups do',async()=>{
+  const h=client(),pending=h.nodes.locate.onclick();h.position();await pending;h.nodes['location-origin'].onclick();
+  assert.equal(Object.keys(h.window.TrafficLocation.details('南京从南京南站到新街口步行')).length,0);
+  assert.equal(Object.keys(h.window.TrafficLocation.details('2025年南京地铁客运量是多少')).length,0);
+  const follow=h.window.TrafficLocation.details('改成步行',{origin:'当前位置'});assert.equal(follow.origin_location,'118.797000,31.968000');assert.equal(follow.transport,undefined);
 });

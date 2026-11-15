@@ -2,12 +2,18 @@ import {build} from "esbuild";
 import {createHash} from "node:crypto";
 import {readFile,mkdir,writeFile} from "node:fs/promises";
 
+const travelBrowser=await build({entryPoints:["shared/travel-context.mjs"],bundle:true,platform:"browser",format:"iife",globalName:"TrafficTravel",write:false,target:"es2020"});
+await mkdir("outputs",{recursive:true});
+await writeFile("outputs/travel-context-browser.js",travelBrowser.outputFiles[0].text);
+
 const sources={
   "/manifest.webmanifest":["public/manifest.webmanifest","application/manifest+json; charset=utf-8"],
   "/sw.js":["public/sw.js","text/javascript; charset=utf-8"],
   "/app/pwa.js":["public/pwa.js","text/javascript; charset=utf-8"],
   "/app/voice-android.js":["public/voice-android.js","text/javascript; charset=utf-8"],
   "/app/voice.js":["public/voice.js","text/javascript; charset=utf-8"],
+  "/app/local-history.js":["public/local-history.js","text/javascript; charset=utf-8"],
+  "/app/travel-context.js":["outputs/travel-context-browser.js","text/javascript; charset=utf-8"],
   "/app/history.js":["public/history.js","text/javascript; charset=utf-8"],
   "/app/location.js":["public/location.js","text/javascript; charset=utf-8"],
   "/app/android-release.json":["public/android-release.json","application/json; charset=utf-8"],

@@ -29,10 +29,13 @@
     window.TrafficChat.setMode('travel');get('action').value='route';get('action').dispatchEvent(new Event('change',{bubbles:true}));get('city').value=current.city;get('origin').value='当前位置';get('destination').focus();
   };
   window.TrafficLocation={clear,
-    details(text=''){
-      if(!/^(?:当前位置|我的位置)$/.test(get('origin').value)&&!/(?:当前|我的)位置/.test(text))return {};
+    details(text='',context={}){
+      const parsed=window.TrafficTravel?.explicitTravel(text)||{},currentOrigin=value=>/^(?:当前位置|我的位置)$/.test(value||'');
+      if(parsed.origin&&!currentOrigin(parsed.origin))return {};
+      const follow=window.TrafficTravel?.isTravelFollowup(text)||!text;
+      if(!/(?:当前|我的)位置/.test(text)&&!currentOrigin(context.origin)&&!(follow&&currentOrigin(get('origin').value)))return {};
       if(!valid())return {};
-      return {city:current.city,origin:'当前位置',origin_location:current.location,action:'route',transport:get('transport').value||'transit'};
+      return {city:current.city,origin:'当前位置',origin_location:current.location,action:'route',located:'true'};
     }
   };
   window.addEventListener('pagehide',()=>{generation++;cancel?.();});

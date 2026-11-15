@@ -34,3 +34,15 @@ test('invalid keys do not retry and short transport replies retain the previous 
   const parsed=parseTravel('地铁',[{role:'user',content:'南京从当前位置到新街口怎么去'},{role:'assistant',content:'请补充出行方式。可以在上方“出行服务”中填写查询条件。'}]);
   assert.equal(parsed.city,'南京');assert.equal(parsed.origin,'当前位置');assert.equal(parsed.destination,'新街口');assert.equal(parsed.transport,'transit');
 });
+
+test('transit follow-up preferences reach Amap and a named start ignores a stale GPS point',async()=>{
+  for(const [question,strategy] of [['少换乘一点','2'],['少步行一点','3'],['快一点','0'],['便宜一点','1']]){
+    let route;
+    const request=async url=>{if(url.pathname.endsWith('/geo'))return Response.json(address);route=url;return Response.json({status:'1',route:{transits:[{distance:'1000',duration:'500',segments:[]}]}});};
+    const result=await travelAnswer(env,question,[],{...details,action:'route',contextual:'true'},request);
+    assert.ok(!result.unavailable);assert.equal(result.slots.transport,'transit');assert.equal(route.searchParams.get('strategy'),strategy);
+  }
+  const calls=[];const request=async url=>{calls.push(url);return url.pathname.endsWith('/geo')?Response.json(address):Response.json({status:'1',route:{paths:[{distance:'500',duration:'100',steps:[]}]}});};
+  const result=await travelAnswer(env,'南京从南京南站到新街口步行',[],{origin_location:details.origin_location},request);
+  assert.ok(!result.unavailable);assert.equal(calls.filter(url=>url.pathname.endsWith('/geo')).length,2);assert.notEqual(calls.at(-1).searchParams.get('origin'),details.origin_location);
+});
