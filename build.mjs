@@ -5,11 +5,16 @@ import {readFile,mkdir,writeFile} from "node:fs/promises";
 const travelBrowser=await build({entryPoints:["shared/travel-context.mjs"],bundle:true,platform:"browser",format:"iife",globalName:"TrafficTravel",write:false,target:"es2020"});
 await mkdir("outputs",{recursive:true});
 await writeFile("outputs/travel-context-browser.js",travelBrowser.outputFiles[0].text);
+const evidenceBrowser=await build({entryPoints:["shared/answer-evidence.mjs"],bundle:true,platform:"browser",format:"iife",globalName:"TrafficEvidence",write:false,target:"es2020"});
+await writeFile("outputs/answer-evidence-browser.js",evidenceBrowser.outputFiles[0].text);
 
 const sources={
   "/app/workspace.css":["public/workspace.css","text/css; charset=utf-8"],
   "/app/favorites-store.js":["public/favorites-store.js","text/javascript; charset=utf-8"],
   "/app/route-ui.js":["public/route-ui.js","text/javascript; charset=utf-8"],
+  "/app/answer-evidence.js":["outputs/answer-evidence-browser.js","text/javascript; charset=utf-8"],
+  "/app/query-client.js":["public/query-client.js","text/javascript; charset=utf-8"],
+  "/app/query-ui.js":["public/query-ui.js","text/javascript; charset=utf-8"],
   "/manifest.webmanifest":["public/manifest.webmanifest","application/manifest+json; charset=utf-8"],
   "/sw.js":["public/sw.js","text/javascript; charset=utf-8"],
   "/app/pwa.js":["public/pwa.js","text/javascript; charset=utf-8"],

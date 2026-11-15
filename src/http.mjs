@@ -13,6 +13,8 @@ import {renderMetroMap} from "../server/metro-map.ts";
 import {pwaAsset} from "../server/pwa.ts";
 import {createAccounts} from "../server/accounts.mjs";
 import {resolveLocation} from "../server/location.mjs";
+import {checkRequest,requestProgress,queryResponse} from "../server/request-context.mjs";
+import {annotateAnswer} from "../shared/answer-evidence.mjs";
 
 const directory=fileURLToPath(new URL(".",import.meta.url));
 const db=openDatabase(resolve(process.env.DATABASE_PATH||"./data/traffic.db"),resolve(directory,"drizzle"));
@@ -38,7 +40,7 @@ function bodyText(request){
   });
 }
 const json=(value,status=200,headers={})=>Response.json(value,{status,headers:{"cache-control":"no-store",...headers}});
-async function route(request){
+async function route(request,connectionSignal){
   const url=new URL(request.url,"http://localhost");
   if(request.method==="GET"){
     const asset=pwaAsset(url.pathname);if(asset)return asset;
@@ -89,20 +91,39 @@ async function route(request){
   const limit=await publicRateLimit(db,new Request("http://localhost/api/chat",{headers:{"cf-connecting-ip":clientAddress(request)}}));
   if(limit)return limit;
   const account=await accounts.current(request);
-  if(account){try{return json(await accounts.chat(account,q.trim(),mode,details,body.thread_id,body.request_id,(context,slots,notes)=>ask(env,account.id,q.trim(),context,mode,slots,notes)));}catch(error){return json({error:error.status?error.message:"暂时无法保存本次问答，请稍后重试。"},error.status||500);}}
-  if(body.thread_id||body.account_required===true)return json({error:"登录状态已失效，请重新登录后继续这段对话。"},401);
-  return json(await ask(env,null,q.trim(),history.slice(-12).map(h=>({role:h.role,content:h.content.slice(0,2000)})),mode,details));
+  if(!account&&(body.thread_id||body.account_required===true))return json({error:"登录状态已失效，请重新登录后继续这段对话。"},401);
+  const stream=String(request.headers.accept||"").split(",").some(value=>value.trim().split(";")[0].toLowerCase()==="application/x-ndjson");
+  return queryResponse(async context=>{
+    const requestEnv={...env,...context};checkRequest(requestEnv);
+    if(account){try{return await accounts.chat(account,q.trim(),mode,details,body.thread_id,body.request_id,(history,slots,notes)=>ask(requestEnv,account.id,q.trim(),history,mode,slots,notes),{check:()=>checkRequest(requestEnv),progress:stage=>requestProgress(requestEnv,stage),annotate:annotateAnswer});}catch(error){checkRequest(requestEnv);throw error.status?error:Object.assign(new Error("暂时无法保存本次问答，请稍后重试。"),{status:500});}}
+    return ask(requestEnv,null,q.trim(),history.slice(-12).map(h=>({role:h.role,content:h.content.slice(0,2000)})),mode,details);
+  },{signal:connectionSignal,stream});
+}
+function waitForDrain(response,signal){
+  signal.throwIfAborted();return new Promise((resolveDrain,reject)=>{
+    const cleanup=()=>{response.removeListener("drain",done);signal.removeEventListener("abort",abort);},done=()=>{cleanup();resolveDrain();},abort=()=>{cleanup();reject(signal.reason);};
+    response.once("drain",done);signal.addEventListener("abort",abort,{once:true});if(signal.aborted)abort();
+  });
 }
 const server=createServer({maxHeaderSize:16384,requestTimeout:30000,headersTimeout:15000},async(request,response)=>{
+  const disconnect=new AbortController(),abort=()=>{if(!response.writableFinished&&!disconnect.signal.aborted)disconnect.abort(Object.assign(new Error("客户端已停止等待。"),{name:"AbortError",status:499}));};
+  request.once("aborted",abort);response.once("close",abort);response.once("error",abort);
   try{
-    const result=await route(request);
+    const result=await route(request,disconnect.signal);
+    if(response.destroyed){await result.body?.cancel();return;}
     response.writeHead(result.status,Object.fromEntries([...result.headers,["x-content-type-options","nosniff"]]));
-    response.end(Buffer.from(await result.arrayBuffer()));
+    if(result.headers.get("content-type")?.includes("application/x-ndjson")){
+      response.flushHeaders();const reader=result.body.getReader();
+      try{while(true){disconnect.signal.throwIfAborted();const chunk=await reader.read();if(chunk.done)break;if(response.destroyed)break;if(!response.write(Buffer.from(chunk.value)))await waitForDrain(response,disconnect.signal);}}
+      finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
+      if(!response.destroyed)response.end();
+    }else if(!response.destroyed)response.end(Buffer.from(await result.arrayBuffer()));
   }catch(error){
+    if(response.destroyed||disconnect.signal.aborted)return;
     console.error("Request failed:",error.message);
     if(!response.headersSent){response.writeHead(500,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});response.end(JSON.stringify({ok:false,error:"服务暂时无法完成查询，请稍后重试。"}));}
     else response.end();
-  }
+  }finally{request.removeListener("aborted",abort);response.removeListener("close",abort);response.removeListener("error",abort);}
 });
 server.listen(Number(process.env.PORT||10000),process.env.HOST||"0.0.0.0",()=>console.log("交通智问已启动，端口 "+server.address().port));
 function shutdown(){server.close(()=>{db.close();process.exit(0);});server.closeIdleConnections();setTimeout(()=>process.exit(0),10000).unref();}

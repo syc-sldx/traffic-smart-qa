@@ -5,7 +5,9 @@ import {travelAnswer} from "./travel";
 import {isTravelFollowup,resolveTravel} from "../shared/travel-context.mjs";
 import {cities} from "./database";
 import {modelMessage} from "./model";
-import {annualAnswer} from "./annual";
+import {annualAnswer,annualPlan} from "./annual";
+import {checkRequest,requestProgress} from "./request-context.mjs";
+import {annotateAnswer} from "../shared/answer-evidence.mjs";
 import {reportIdentity} from "./public-access";
 import {metroAnswer,isMetroQuery} from "./metro";
 type History={role:string,content:string};
@@ -30,16 +32,20 @@ const toolSpecs=[
 const esc=(x:any)=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 function makeChart(last:any,args:any){if(!last?.rows?.length)throw new Error("请先查询数据。");if(!["bar","line"].includes(args.kind))throw new Error("仅支持柱状图和折线图。");const x=last.columns.indexOf(args.x),y=last.columns.indexOf(args.y);if(x<0||y<0||last.rows.some((r:any)=>r[y]!==null&&typeof r[y]!=="number"))throw new Error("图表列名或数值类型不正确。");return {tooltip:{trigger:"axis"},grid:{left:70,right:30,bottom:70,top:30},xAxis:{type:"category",data:last.rows.map((r:any)=>r[x]),axisLabel:{rotate:30}},yAxis:{type:"value",name:args.y},series:[{type:args.kind,data:last.rows.map((r:any)=>r[y]),itemStyle:{color:"#79e2c3"}}]};}
 export async function ask(env:Cloudflare.Env,userId:string|null,q:string,history:History[],mode="auto",details:any={},memoryNotes=""){
+  checkRequest(env);const result=await askCore(env,userId,q,history,mode,details,memoryNotes);checkRequest(env);return annotateAnswer(result);
+}
+async function askCore(env:Cloudflare.Env,userId:string|null,q:string,history:History[],mode="auto",details:any={},memoryNotes=""){
+  checkRequest(env);
   if(["auto","travel"].includes(mode)){
     const slots=resolveTravel(q,history,details,cities);
     if(details.contextual==="true"||isTravelFollowup(q))details={...slots,...(/^(?:我的位置|当前位置)$/.test(slots.origin)&&details.origin_location?{origin_location:details.origin_location}:{})};
     if(details.origin_location&&/^(?:我的位置|当前位置)$/.test(slots.origin))return travelAnswer(env,q,history,details);
   }
-  if(["auto","travel"].includes(mode)||mode==="data"&&isMetroQuery(q)){const metro=details.strategy&&details.strategy!=="2"?null:metroAnswer(q,history,details);if(metro)return metro;}
-  if(env.DB&&["auto","data"].includes(mode)){const annual=await annualAnswer(env.DB,q,history);if(annual)return annual;}
+  if(["auto","travel"].includes(mode)||mode==="data"&&isMetroQuery(q)){if(isMetroQuery(q)||details.action==="metro")requestProgress(env,"metro");const metro=details.strategy&&details.strategy!=="2"?null:metroAnswer(q,history,details);if(metro)return metro;}
+  if(env.DB&&["auto","data"].includes(mode)){if(annualPlan(q,history))requestProgress(env,"annual");const annual=await annualAnswer(env.DB,q,history);checkRequest(env);if(annual)return annual;}
   const selected=domain(q,history,mode);if(selected==="knowledge")return knowledgeAnswer(env,q,history);if(selected==="travel")return travelAnswer(env,q,history,details);
   if(!env.DB)throw new Error("云端数据库尚未连接。");
-  const quick=await dataAnswer(env.DB,q,history);if(quick)return quick;
+  requestProgress(env,"history");const quick=await dataAnswer(env.DB,q,history);checkRequest(env);if(quick)return quick;
   const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai"}).format();
   const system=`你是城市交通数据问答助手，北京时间日期为${today}。
 flow(city 城市,stat_date 日期,ridership 地铁客流/万人次,unit 单位,source 来源)
@@ -56,15 +62,16 @@ annual_missing(city,year,category,metric,status,notes,source_file,source_sheet,s
   const messages:any[]=[{role:"system",content:system+memoryNote},...history,{role:"user",content:q}];const trace:any[]=[];
   let last:any=null,chart:any=null,report_url:string|null=null,summary="";
   try{for(let turn=0;turn<7;turn++){
-    const message=await modelMessage(env,messages,toolSpecs);const calls=message.tool_calls||[];messages.push({role:"assistant",content:message.content||"",...(calls.length?{tool_calls:calls}:{})});
+    checkRequest(env);
+    const message=await modelMessage(env,messages,toolSpecs);checkRequest(env);const calls=message.tool_calls||[];messages.push({role:"assistant",content:message.content||"",...(calls.length?{tool_calls:calls}:{})});
     if(!calls.length){if(!message.content?.trim())throw new Error("模型没有返回结论。");if(trace.some(t=>t.tool==="run_sql")&&!last)throw new Error("查询未成功，无法核实数字。");return {ok:true,domain:"data",engine:"model",answer:message.content,steps:turn+1,trace,chart,report_url,summary,...(last||{})};}
     if(trace.length+calls.length>6)throw new Error("工具调用达到上限，请缩小问题范围。");
-    for(const call of calls){let text="",ok=true;try{const args=JSON.parse(call.function.arguments||"{}");switch(call.function.name){
-      case "run_sql":last=null;chart=null;last=await query(env.DB,String(args.query||""));text=JSON.stringify(last);break;
+    for(const call of calls){checkRequest(env);let text="",ok=true;try{const args=JSON.parse(call.function.arguments||"{}");switch(call.function.name){
+      case "run_sql":requestProgress(env,"history");last=null;chart=null;last=await query(env.DB,String(args.query||""));checkRequest(env);text=JSON.stringify(last);break;
       case "make_chart":chart=makeChart(last,args);text="图表已生成。";break;
       case "summarize":if(!last)throw new Error("请先查询数据。");summary=JSON.stringify(last.columns.map((name:string,i:number)=>{const a=last.rows.map((r:any)=>r[i]).filter((v:any)=>typeof v==="number");return a.length?{column:name,count:a.length,mean:a.reduce((s:number,v:number)=>s+v,0)/a.length,min:Math.min(...a),max:Math.max(...a)}:null;}).filter(Boolean));text=summary;break;
-      case "export_report":{if(!last)throw new Error("请先查询数据。");if(report_url)throw new Error("报告已导出，不要重复调用。");const id=crypto.randomUUID();const identity=await reportIdentity(userId);const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>${esc(args.title)}</title><style>body{font:15px/1.8 sans-serif;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style><h1>${esc(args.title)}</h1><p>${esc(args.conclusion)}</p><table><tr>${last.columns.map((c:string)=>`<th>${esc(c)}</th>`).join("")}</tr>${last.rows.map((r:any)=>`<tr>${r.map((v:any)=>`<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table><h2>SQL</h2><pre>${esc(last.sql)}</pre><p>数据为历史快照，查询结论仅对应实际观测样本。</p></html>`;await env.DB.prepare("INSERT INTO reports(id,owner,html,created_at) VALUES(?,?,?,?)").bind(id,identity.owner,html,new Date().toISOString()).run();report_url="/reports/"+id+(identity.token?"?token="+identity.token:"");text="报告已保存。";break;}
+      case "export_report":{if(!last)throw new Error("请先查询数据。");if(report_url)throw new Error("报告已导出，不要重复调用。");const id=crypto.randomUUID();const identity=await reportIdentity(userId);checkRequest(env);requestProgress(env,"formatting");const html=`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>${esc(args.title)}</title><style>body{font:15px/1.8 sans-serif;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style><h1>${esc(args.title)}</h1><p>${esc(args.conclusion)}</p><table><tr>${last.columns.map((c:string)=>`<th>${esc(c)}</th>`).join("")}</tr>${last.rows.map((r:any)=>`<tr>${r.map((v:any)=>`<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table><h2>SQL</h2><pre>${esc(last.sql)}</pre><p>数据为历史快照，查询结论仅对应实际观测样本。</p></html>`;checkRequest(env);await env.DB.prepare("INSERT INTO reports(id,owner,html,created_at) VALUES(?,?,?,?)").bind(id,identity.owner,html,new Date().toISOString()).run();checkRequest(env);report_url="/reports/"+id+(identity.token?"?token="+identity.token:"");text="报告已保存。";break;}
       default:throw new Error("未知工具。");
-    }}catch(error){ok=false;text=(error as Error).message;}trace.push({tool:call.function.name,ok,note:text.slice(0,100)});messages.push({role:"tool",tool_call_id:call.id,content:text});}
-  }throw new Error("超过工具调用轮数，请缩小问题范围。");}catch(error){return {ok:false,domain:"data",error:(error as Error).message,trace};}
+    }}catch(error){checkRequest(env);ok=false;text=(error as Error).message;}trace.push({tool:call.function.name,ok,note:text.slice(0,100)});messages.push({role:"tool",tool_call_id:call.id,content:text});}
+  }throw new Error("超过工具调用轮数，请缩小问题范围。");}catch(error){checkRequest(env);return {ok:false,domain:"data",error:(error as Error).message,trace};}
 }

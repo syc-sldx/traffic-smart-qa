@@ -18,7 +18,7 @@ async function passwordMatches(password,stored){
 }
 function publicAccount(row){return {id:row.id,username:row.username,profile:memoryProfile(JSON.parse(row.profile_json||'{}'))};}
 export function storedReply(result){
-  const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','report_url','queried_at','metro_route','route_options','clarification','retrieved_at','memory_hits','needs_input','unavailable'])if(result[key]!==undefined)out[key]=result[key];
+  const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','report_url','queried_at','metro_route','route_options','clarification','retrieved_at','evidence','memory_hits','needs_input','unavailable'])if(result[key]!==undefined)out[key]=result[key];
   if(JSON.stringify(out).length>220000){delete out.chart;if(out.rows)out.rows=out.rows.slice(0,50);out.notice=(out.notice?out.notice+'\n':'')+'历史记录只保留前50行明细，结论与问题已保存。';}
   return out;
 }
@@ -106,24 +106,26 @@ export function createAccounts({db,enabled=false,secureCookies=true,origin='http
       return reply({error:'接口不存在。'},404);
     }catch(error){return reply({error:error.status?error.message:'账号服务暂时不可用，请稍后重试。'},error.status||500);}
   }
-  async function chat(user,question,mode,details,threadId,requestId,answer){
+  async function chat(user,question,mode,details,threadId,requestId,answer,controls={}){
+    const checkpoint=()=>controls.check?.();checkpoint();
     if(typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(requestId))fail('对话请求编号无效。');
     const previous=await db.prepare('SELECT * FROM qa_turns WHERE user_id=? AND request_id=?').bind(user.id,requestId).first();if(previous)return {...JSON.parse(previous.reply_json),thread_id:previous.thread_id,turn_id:previous.id};
     let thread;if(threadId)thread=await owner(user,threadId);else{
       const now=Date.now();thread={id:randomUUID(),title:question.replace(/\s+/g,' ').slice(0,60),mode,created_at:now};
-      await db.prepare('INSERT INTO qa_threads(id,user_id,title,mode,created_at,updated_at) VALUES(?,?,?,?,?,?)').bind(thread.id,user.id,thread.title,mode,now,now).run();
+      checkpoint();await db.prepare('INSERT INTO qa_threads(id,user_id,title,mode,created_at,updated_at) VALUES(?,?,?,?,?,?)').bind(thread.id,user.id,thread.title,mode,now,now).run();
     }
     const key=user.id+':'+thread.id,prior=queues.get(key)||Promise.resolve();
     const job=prior.catch(()=>{}).then(async()=>{
+      checkpoint();controls.progress?.('history');
       const repeated=await db.prepare('SELECT * FROM qa_turns WHERE user_id=? AND request_id=?').bind(user.id,requestId).first();if(repeated)return {...JSON.parse(repeated.reply_json),thread_id:repeated.thread_id,turn_id:repeated.id};
-      await owner(user,thread.id);
+      await owner(user,thread.id);checkpoint();
       const rows=(await db.prepare('SELECT x.* FROM qa_turns x JOIN qa_threads t ON t.id=x.thread_id WHERE x.user_id=? AND t.deleted_at IS NULL ORDER BY x.created_at DESC,x.rowid DESC LIMIT 300').bind(user.id).all()).results;
       const recent=(await db.prepare('SELECT * FROM qa_turns WHERE user_id=? AND thread_id=? ORDER BY created_at DESC,rowid DESC LIMIT 6').bind(user.id,thread.id).all()).results.reverse(),profile=memoryProfile(JSON.parse((await db.prepare('SELECT profile_json FROM qa_accounts WHERE id=?').bind(user.id).first()).profile_json));
       let result;
       if(/^\s*(?:请)?记住/.test(question)){
         const note=question.replace(/^\s*(?:请)?记住[：:,，]?/,'').trim();const city=metro.scope_cities.find(city=>note.includes(city));if(city)profile.city=city;
         profile.notes=(profile.notes?profile.notes+'\n':'')+note;profile.notes=profile.notes.slice(-1200);
-        await db.prepare('UPDATE qa_accounts SET profile_json=? WHERE id=?').bind(JSON.stringify(profile),user.id).run();
+        checkpoint();await db.prepare('UPDATE qa_accounts SET profile_json=? WHERE id=?').bind(JSON.stringify(profile),user.id).run();checkpoint();
         result={ok:true,domain:'knowledge',engine:'memory',answer:'已保存到你的账号记忆。可在“记忆设置”中查看、修改或清空。',profile};
       }else if(/我的(?:常用|默认)城市|记得我.*(?:偏好|城市)/.test(question)){
         result={ok:true,domain:'knowledge',engine:'memory',answer:'你账号中保存的常用城市：'+(profile.city||'尚未设置')+'。'+(profile.notes?'\n保存的偏好：'+profile.notes:'')+'\n这是一条账号记忆，不是本次实时定位结果。'};
@@ -142,8 +144,8 @@ export function createAccounts({db,enabled=false,secureCookies=true,origin='http
         if(!slots.transport&&!/驾车|开车|步行|走路|公交|地铁/.test(question))slots.transport=profile.transport;
         result=await answer(history,slots,profile.notes);result={...result,memory_hits:memories.length};
       }
-      const turnId=randomUUID(),now=Date.now(),saved=storedReply(result);
-      await db.batch([db.prepare('INSERT INTO qa_turns(id,user_id,thread_id,request_id,question,reply_json,created_at) VALUES(?,?,?,?,?,?,?)').bind(turnId,user.id,thread.id,requestId,question,JSON.stringify(saved),now),db.prepare('UPDATE qa_threads SET updated_at=?,mode=? WHERE id=? AND user_id=?').bind(now,mode,thread.id,user.id)]);
+      checkpoint();if(controls.annotate)result=controls.annotate(result);const turnId=randomUUID(),now=Date.now(),saved=storedReply(result);
+      checkpoint();await db.batch([db.prepare('INSERT INTO qa_turns(id,user_id,thread_id,request_id,question,reply_json,created_at) VALUES(?,?,?,?,?,?,?)').bind(turnId,user.id,thread.id,requestId,question,JSON.stringify(saved),now),db.prepare('UPDATE qa_threads SET updated_at=?,mode=? WHERE id=? AND user_id=?').bind(now,mode,thread.id,user.id)]);
       return {...result,thread_id:thread.id,turn_id:turnId};
     });
     queues.set(key,job);try{return await job;}finally{if(queues.get(key)===job)queues.delete(key);}

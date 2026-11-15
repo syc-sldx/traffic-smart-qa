@@ -59,7 +59,7 @@
       row.appendChild(select);row.appendChild(action);get('history-list').appendChild(row);
     }
     if(!value.threads.length){const empty=document.createElement('p');empty.className='history-empty';empty.textContent=state.trash?'回收站为空':'还没有匹配的历史问答';get('history-list').appendChild(empty);}
-    if(restore&&!state.trash){let id;try{id=localStorage.getItem(lastKey());}catch{}if(!value.threads.some(t=>t.id===id))id=value.threads[0]?.id;if(id)await openThread(id);}
+    if(restore&&!state.trash){let id;try{id=localStorage.getItem(lastKey());}catch{}if(!value.threads.some(t=>t.id===id))id=value.threads[0]?.id;if(id)await openThread(id,true);}
   }
   function showError(error){historyError=error.message;if(error.status===401){state.user=null;state.current=null;state.lastTurn=null;window.TrafficChat.reset();window.TrafficLocation?.clear();historyError='登录已过期，请重新登录后继续。';}controls();}
   get('history-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>refresh().catch(showError),300);};

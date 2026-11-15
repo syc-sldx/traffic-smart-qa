@@ -1,3 +1,4 @@
+import {checkRequest,requestProgress,upstreamSignal,requestDelay} from "./request-context.mjs";
 import {cities} from "./database";
 import {coordinate} from "./location.mjs";
 import {parseTravelContext,resolveTravel} from "../shared/travel-context.mjs";
@@ -49,13 +50,13 @@ function mapFailure(code:string,attempts:number,path:string){
 }
 async function mapRequest(env:Cloudflare.Env,path:string,params:Record<string,string|number>,request:typeof fetch){
   if(!env.AMAP_API_KEY)throw new Error("尚未配置高德地图服务。");
-  const url=new URL("https://restapi.amap.com/v3/"+path);for(const [k,v]of Object.entries({...params,key:env.AMAP_API_KEY,output:"JSON"}))url.searchParams.set(k,String(v));
+  requestProgress(env,"map");const url=new URL("https://restapi.amap.com/v3/"+path);for(const [k,v]of Object.entries({...params,key:env.AMAP_API_KEY,output:"JSON"}))url.searchParams.set(k,String(v));
   for(let attempt=1;attempt<=2;attempt++){
-    let response:Response;try{response=await request(url,{signal:AbortSignal.timeout(12000)});}catch{throw new Error("地图服务连接失败或超时，请稍后重试。");}
+    checkRequest(env);let response:Response;try{response=await request(url,{signal:upstreamSignal(env,12000)});}catch{checkRequest(env);throw new Error("地图服务连接失败或超时，请稍后重试。");}
     if(!response.ok)throw new Error(`地图服务返回 HTTP ${response.status}。`);
-    const data:any=await response.json();if(String(data.status)==="1")return data;
+    const data:any=await response.json();checkRequest(env);if(String(data.status)==="1")return data;
     const code=String(data.infocode||"").replace(/\D/g,"").slice(0,5);
-    if(/^3\d{4}$/.test(code)&&attempt===1){await new Promise(resolve=>setTimeout(resolve,300));continue;}
+    if(/^3\d{4}$/.test(code)&&attempt===1){await requestDelay(env,300);continue;}
     throw mapFailure(code,attempt,path);
   }
 }
@@ -68,7 +69,7 @@ async function geocode(env:Cloudflare.Env,address:string,city:string,request:typ
 }
 export function parseTravel(question:string,history:any[]=[]):Record<string,string>{return parseTravelContext(question,history,cities);}
 export async function travelAnswer(env:Cloudflare.Env,q:string,history:any[],details:Record<string,string>={},request:typeof fetch=fetch){
-  const slots=resolveTravel(q,history,details,cities);
+  checkRequest(env);const slots=resolveTravel(q,history,details,cities);
   if(slots.action==="metro"&&["walking","driving"].includes(slots.transport))slots.action="route";
   const out:any={ok:true,domain:"travel",engine:"travel",steps:0,trace:[],slots};
   const action=slots.action||"route",required=action==="traffic"?["city","road"]:["city","origin","destination","transport"];
@@ -98,5 +99,5 @@ export async function travelAnswer(env:Cloudflare.Env,q:string,history:any[],det
       Object.assign(out,{answer:`${slots.city}：${slots.origin} → ${slots.destination}，出行方式为${names[slots.transport]}。返回 ${rows.length} 个方案，距离和预计耗时见下表；这是本次地图查询的估计值。`,columns:["方案","距离（公里）","预计耗时（分钟）","路线说明"],rows,route_options:routeOptions(paths,slots.transport),resolved_addresses:{origin:start.formatted_address||slots.origin,destination:end.formatted_address||slots.destination}});
     }
     return {...out,steps:1,queried_at:new Date().toLocaleString("sv-SE",{timeZone:"Asia/Shanghai"}).replace(" ","T")+"+08:00",sources:[{title:action==="traffic"?"高德交通态势":"高德路线规划",url:action==="traffic"?"https://lbs.amap.com/api/webservice/guide/api-advanced/traffic-situation-inquiry":doc}],trace:[{tool:action,ok:true,note:"已调用高德 Web 服务"}]};
-  }catch(error){return {...out,unavailable:true,answer:(error as Error).message,...((error as any).mapError?{map_error:(error as any).mapError}:{})};}
+  }catch(error){checkRequest(env);return {...out,unavailable:true,answer:(error as Error).message,...((error as any).mapError?{map_error:(error as any).mapError}:{})};}
 }
