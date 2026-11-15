@@ -18,7 +18,7 @@ async function passwordMatches(password,stored){
 }
 function publicAccount(row){return {id:row.id,username:row.username,profile:memoryProfile(JSON.parse(row.profile_json||'{}'))};}
 export function storedReply(result){
-  const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','report_url','queried_at','metro_route','memory_hits','needs_input','unavailable'])if(result[key]!==undefined)out[key]=result[key];
+  const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','report_url','queried_at','metro_route','route_options','clarification','retrieved_at','memory_hits','needs_input','unavailable'])if(result[key]!==undefined)out[key]=result[key];
   if(JSON.stringify(out).length>220000){delete out.chart;if(out.rows)out.rows=out.rows.slice(0,50);out.notice=(out.notice?out.notice+'\n':'')+'历史记录只保留前50行明细，结论与问题已保存。';}
   return out;
 }

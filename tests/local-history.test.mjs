@@ -34,3 +34,10 @@ test('blocked localStorage does not break script initialization and gives a read
   const context={window:{}};Object.defineProperty(context,'localStorage',{get(){throw Error('blocked');}});
   vm.runInNewContext(source,context);assert.ok(context.window.TrafficLocalHistory);assert.throws(()=>context.window.TrafficLocalHistory.store.list(),/未允许本机存储/);
 });
+test('saved route cards and clarification choices survive reload without retaining GPS fields',()=>{
+  const h=fixture(),a=h.create(),thread=a.append(null,'上海国家会展中心站',{
+    ok:true,answer:'请选择车站',clarification:{field:'station',question:'上海国家会展中心站',options:[{label:'国家会展中心',description:'17号线',travel:{city:'上海',action:'metro',station_id:'fixture-station'}}]},
+    route_options:[{id:'1',fare_yuan:0,steps:[{kind:'ride',line:'示例线路'}]}],retrieved_at:'2026-11-10',slots:{city:'上海',station_id:'fixture-station',origin_location:'121,31'}
+  });
+  const reply=h.create().get(thread.id).turns[0].reply;assert.equal(reply.route_options[0].fare_yuan,0);assert.equal(reply.clarification.options[0].travel.station_id,'fixture-station');assert.equal(reply.slots.station_id,'fixture-station');assert.ok(!('origin_location' in reply.slots));assert.equal(reply.retrieved_at,'2026-11-10');
+});

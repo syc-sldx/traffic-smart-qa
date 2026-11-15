@@ -6,8 +6,8 @@
     function decode(raw){const value=JSON.parse(raw);if(value.schema!==1||typeof value.id!=='string'||!Array.isArray(value.turns))throw Error('本机记录格式异常，请先备份；不会覆盖已有记录。');return value;}
     function enabled(value){if(typeof value==='boolean')storage.setItem(settingsKey,JSON.stringify({save:value}));const raw=storage.getItem(settingsKey);return !raw||JSON.parse(raw).save!==false;}
     function safeReply(reply){
-      const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','queried_at','metro_route','needs_input','unavailable','map_error'])if(reply[key]!==undefined)out[key]=reply[key];
-      if(reply.slots){out.slots={};for(const key of ['city','origin','destination','transport','action','road','strategy'])if(typeof reply.slots[key]==='string')out.slots[key]=reply.slots[key].slice(0,200);}
+      const out={};for(const key of ['ok','answer','error','domain','engine','notice','columns','rows','chart','images','sources','sql','queried_at','metro_route','route_options','clarification','retrieved_at','needs_input','unavailable','map_error'])if(reply[key]!==undefined)out[key]=reply[key];
+      if(reply.slots){out.slots={};for(const key of ['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id'])if(typeof reply.slots[key]==='string')out.slots[key]=reply.slots[key].slice(0,200);}
       if(JSON.stringify(out).length>120000){delete out.chart;if(out.rows)out.rows=out.rows.slice(0,50);out.notice=(out.notice?out.notice+'\n':'')+'本机历史保存摘要，部分图表或明细未保存。';}
       return JSON.parse(JSON.stringify(out));
     }

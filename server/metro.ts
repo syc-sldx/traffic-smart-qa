@@ -51,7 +51,7 @@ class Heap{
 }
 export function planMetro(city:string,originId:string,destinationId:string){
   const index=indexFor(city);if(!index?.stations.has(originId)||!index.stations.has(destinationId))return null;
-  if(originId===destinationId)return {city,origin:index.stations.get(originId)!.name,destination:index.stations.get(destinationId)!.name,stops:0,transfers:0,segments:[]};
+  if(originId===destinationId)return {city,origin:index.stations.get(originId)!.name,destination:index.stations.get(destinationId)!.name,origin_id:originId,destination_id:destinationId,stops:0,transfers:0,segments:[]};
   const queue=new Heap(),dist=new Map<string,number>(),previous=new Map<string,string>();
   for(const line of index.stations.get(originId)!.lines){const state=originId+"|"+line;dist.set(state,0);queue.push({state,cost:0});}
   let goal="";
@@ -68,14 +68,24 @@ export function planMetro(city:string,originId:string,destinationId:string){
     const direction=line.loop?"经"+index.stations.get(leg.ids[1])!.name+"方向（环线）":"往"+(b>a?active.at(-1)!.name:active[0].name)+"方向";
     return {line:line.name,line_id:line.id,color:line.color,direction,origin:index.stations.get(leg.ids[0])!.name,destination:index.stations.get(leg.ids.at(-1)!)!.name,stops:leg.ids.length-1,stations:leg.ids.map(id=>index.stations.get(id)!.name)};
   });
-  return {city,origin:index.stations.get(originId)!.name,destination:index.stations.get(destinationId)!.name,stops:segments.reduce((sum,s)=>sum+s.stops,0),transfers:Math.max(0,segments.length-1),segments};
+  return {city,origin:index.stations.get(originId)!.name,destination:index.stations.get(destinationId)!.name,origin_id:originId,destination_id:destinationId,stops:segments.reduce((sum,s)=>sum+s.stops,0),transfers:Math.max(0,segments.length-1),segments};
 }
 
 export function isMetroQuery(q:string){return /地铁图|地铁线路图|线网图|地铁站|地铁.*(?:站点|车站)|(?:\d+号线|[Ss]\d+号?线).*(?:站|图)|站.*(?:怎么|如何|到|去|哪.*线|几条线|所属|换乘)|(?:地铁|轨道交通).*(?:换乘|怎么走)/.test(q)&&!/(?:客流|客运量|走行里程|公路里程|什么是|是什么意思|是什么|定义|概念|原理|含义|政策|法规|规范|标准)/.test(q);}
 function pieces(question:string){const q=question.replace(/\s/g,"").replace(/[？?。]+$/,"");const m=q.match(/^(?:请问|请|帮我查一下|帮我查|查询|查一下)?(.+?)(?:怎么去|如何去|怎么到|如何到|到|去|→|->)(.+)$/);if(!m)return null;return {origin:m[1].replace(/^从/,""),destination:m[2].replace(/(?:怎么|如何|应该|乘坐|坐地铁|地铁怎么|换乘|[，,]).*$/,"").trim()};}
 function explicitCity(q:string){const leading=dataset.scope_cities.find(c=>q.startsWith(c)&&/^(?:市)?(?:从|地铁|轨道|的地铁)/.test(q.slice(c.length)));return leading||"";}
 function response(city:string){const n=networks.find(n=>n.city===city);return {ok:true,domain:"travel",engine:"metro",steps:1,trace:[{tool:"metro_network",ok:true,note:"根据已导入的运营站点线网计算"}],sources:n?[{title:city+"高德地铁图（公开来源）",url:n.map_url},{title:"站点数据来源",url:n.data_url}]:[{title:"高德地铁图城市目录",url:dataset.source.viewer_url}],retrieved_at:dataset.retrieved_at};}
-function clarify(city:string,label:string,choices:Station[]){const index=indexFor(city)!;return {...response(city),needs_input:true,answer:label+"对应多个不同站点，请补充线路或使用完整站名。",columns:["站点","所属线路"],rows:choices.map(s=>[s.name,[...s.lines].map(id=>index.lines.get(id)!.name).join("、")])};}
+type StationField="origin"|"destination"|"station";
+const stationQuestion=(question:string)=>question.replace(/(?:有哪些|有什么|有哪几条|有几条|能换乘|可以换乘|属于|是哪|是几|经过|途经|的线路|线路|地铁线路|地铁|站点信息|站点|车站|查询|线).*$/,"").replace(/^从/,"");
+function stationLines(city:string,station:Station){const index=indexFor(city)!;return [...new Set([...station.lines].map(id=>index.lines.get(id)!.name))].join("、");}
+function cityChoices(question:string,choices:Network[],pair:{origin:string,destination:string}|null){
+  return {...response(""),needs_input:true,answer:"这些站名在多个城市存在，请点选所在城市。",clarification:{field:"city",question,options:choices.map(n=>({label:n.city,description:"已收录轨道线网",travel:{action:"metro",city:n.city,transport:"transit",...(pair||{})}}))}};
+}
+function clarify(city:string,field:StationField,choices:Station[],question:string,slots:Record<string,string>,invalid=false){
+  const label={origin:"起点",destination:"终点",station:"站名"}[field],idField=field==="station"?"station_id":field+"_id";
+  const base={...slots};delete base[idField];
+  return {...response(city),slots:base,needs_input:true,answer:invalid?"已保存的"+label+"选择已失效或与当前站名不符，请重新选择。":label+"对应多个不同站点，请根据所属线路点选。",columns:["站点","所属线路"],rows:choices.map(s=>[s.name,stationLines(city,s)]),clarification:{field,question,options:choices.map(s=>({label:s.name,description:stationLines(city,s),travel:{...base,...(field==="station"?{}:{[field]:s.name}),[idField]:s.id}}))}};
+}
 export function metroAnswer(question:string,history:any[]=[],details:Record<string,string>={}):any|null{
   if(/(?:直接|显示|展示|发|出|看).*(?:图片|图)|(?:不要|不用|别).*(?:点|链接)/.test(question)&&!/地铁|号线|线网|线路图/.test(question)){
     const previous=[...history].reverse().find(h=>h.role==="user");
@@ -85,21 +95,26 @@ export function metroAnswer(question:string,history:any[]=[],details:Record<stri
   if(details.action==="traffic"||/(?:客流|客运量|运营里程|走行里程|公路里程|平均车速|天气)/.test(question))return null;
   const requested=details.action==="metro"||isMetroQuery(question),pair=details.origin&&details.destination?{origin:details.origin,destination:details.destination}:pieces(question);
   let city=cleanCity(details.city||explicitCity(question));
-  if(!city&&pair){const possible=networks.filter(n=>findMetroStations(n.city,pair.origin).length&&findMetroStations(n.city,pair.destination).length);if(possible.length===1)city=possible[0].city;else if(possible.length>1)return {...response(""),needs_input:true,answer:"这些站名在多个城市存在，请补充城市："+possible.map(n=>n.city).join("、")+"。"};}
+  if(!city&&pair){const possible=networks.filter(n=>findMetroStations(n.city,pair.origin).length&&findMetroStations(n.city,pair.destination).length);if(possible.length===1)city=possible[0].city;else if(possible.length>1)return cityChoices(question,possible,pair);}
   if(!city&&!pair){const mentioned=dataset.scope_cities.filter(c=>question.includes(c));if(mentioned.length===1)city=mentioned[0];}
   if(!city&&requested){const previous=[...history].reverse().find(h=>h.role==="user");if(previous){city=cleanCity(details.city||explicitCity(previous.content));if(!city){const names=dataset.scope_cities.filter(c=>previous.content.includes(c));if(names.length===1)city=names[0];}}}
+  if(!city&&!pair&&requested){const text=stationQuestion(question),possible=text?networks.filter(n=>findMetroStations(n.city,text).length):[];if(possible.length===1)city=possible[0].city;else if(possible.length>1)return cityChoices(question,possible,null);}
   if(!city)return requested&&(!pair||details.action==="metro"||/地铁|轨道|线网|号线/.test(question))?{...response(""),needs_input:true,answer:"请补充城市，例如“南京南站怎么去南京新街口站”，或在出行表单选择城市和两座地铁站。"}:null;
   const index=indexFor(city);
   if(!index)return requested||details.action==="metro"?{...response(city),unavailable:true,answer:city+"当前未收录独立线网，不能据此判断当地有没有轨道交通。可改用公交地铁实时路线规划，填写完整起终点查询。"}:null;
   if(pair){
     const starts=findMetroStations(city,pair.origin),ends=findMetroStations(city,pair.destination);
-    if(starts.length>1)return clarify(city,"起点",starts);if(ends.length>1)return clarify(city,"终点",ends);
+    const start=details.origin_id?starts.find(s=>s.id===details.origin_id):starts.length===1?starts[0]:undefined,end=details.destination_id?ends.find(s=>s.id===details.destination_id):ends.length===1?ends[0]:undefined;
+    const slots:Record<string,string>={action:"metro",city,origin:start?.name||pair.origin,destination:end?.name||pair.destination,transport:"transit",...(start?{origin_id:start.id}:{}),...(end?{destination_id:end.id}:{})};
+    if(details.origin_id&&!start)return clarify(city,"origin",starts,question,slots,true);
+    if(details.destination_id&&!end)return clarify(city,"destination",ends,question,slots,true);
     if(!starts.length||!ends.length)return details.action==="metro"||/地铁|轨道|号线/.test(question)?{...response(city),needs_input:true,answer:"在"+city+"已导入线网中未能准确匹配"+(!starts.length?"起点“"+pair.origin+"”":"终点“"+pair.destination+"”")+"。请从站点提示中选择完整站名；普通地址可切换公交/驾车路线。"}:null;
-    const route=planMetro(city,starts[0].id,ends[0].id);
+    if(!start)return clarify(city,"origin",starts,question,slots);if(!end)return clarify(city,"destination",ends,question,slots);
+    const route=planMetro(city,start.id,end.id);
     if(!route)return {...response(city),unavailable:true,answer:"已找到两站，但当前运营站点快照没有可核实的连通路径，不能编造换乘方案。请查看线网图或使用实时路线规划。"};
     const intro=route.stops===0?"起终点为同一站，无需乘坐地铁。":city+"："+route.origin+" → "+route.destination+"，共乘坐 "+route.stops+" 站，"+(route.transfers?"换乘 "+route.transfers+" 次。":"无需换乘。");
     const instructions=route.segments.map((s,i)=>(i+1)+". 在“"+s.origin+"”乘坐"+s.line+"（"+s.direction+"），乘坐 "+s.stops+" 站，在“"+s.destination+"”下车。\n途经："+s.stations.join(" → ")).join("\n\n");
-    return {...response(city),answer:intro+(instructions?"\n\n"+instructions:""),metro_route:route,columns:["分段","线路","方向","上车站","下车站","乘坐站数"],rows:route.segments.map((s,i)=>[i+1,s.line,s.direction,s.origin,s.destination,s.stops]),notice:"按换乘较少、再按站数较少计算的静态参考路线。抓取于 "+dataset.retrieved_at.slice(0,10)+"；不含临时停运、班次、票价、出站换乘和贯通车保证，请以运营方现场信息为准。"};
+    return {...response(city),slots,answer:intro+(instructions?"\n\n"+instructions:""),metro_route:route,columns:["分段","线路","方向","上车站","下车站","乘坐站数"],rows:route.segments.map((s,i)=>[i+1,s.line,s.direction,s.origin,s.destination,s.stops]),notice:"按换乘较少、再按站数较少计算的静态参考路线。抓取于 "+dataset.retrieved_at.slice(0,10)+"；不含临时停运、班次、票价、出站换乘和贯通车保证，请以运营方现场信息为准。"};
   }
   if(!requested&&(!/站[？?]?$/.test(question)||!findMetroStations(city,question).length))return null;
   const mapQuestion=/地铁图|线路图|线网图|号线图/.test(question);
@@ -108,9 +123,12 @@ export function metroAnswer(question:string,history:any[]=[],details:Record<stri
   if(selected.length){return {...response(city),...(mapQuestion?{images:[metroMapInfo(city,selected[0].name)]}:{}),answer:city+selected[0].name+(mapQuestion?"示意图如下，可点图片放大查看。":"，以下按运营方向列出已导入站点。")+(selected.length>1?"包含不同分支，请注意终点方向。":""),columns:["线路","方向","站序","站点"],rows:selected.flatMap(l=>l.stations.filter(s=>s.active).map((s,i)=>[l.name,l.stations.filter(s=>s.active)[0].name+" → "+l.stations.filter(s=>s.active).at(-1)!.name,i+1,s.name]))};}
   if(lineToken)return {...response(city),unavailable:true,answer:"当前"+city+"运营线网快照未收录“"+lineToken+"”，不将规划或在建线路当作已开通。请查看来源中的当前线网图。"};
   if(mapQuestion)return {...response(city),images:[metroMapInfo(city)],answer:city+"地铁线网图如下，可直接查看，点图片可放大看站名。当前收录 "+index.stations.size+" 个轨道站点、"+new Set(index.network.lines.map(l=>l.name)).size+" 条命名线路（含分支 "+index.lines.size+" 项）。资料抓取日期："+dataset.retrieved_at.slice(0,10)+"。",columns:["线路","首站","末站","收录运营站数"],rows:index.network.lines.map(l=>{const s=l.stations.filter(s=>s.active);return [l.name,s[0].name,s.at(-1)!.name,s.length];})};
-  const stationText=question.replace(/(?:有哪些|有什么|有哪几条|有几条|能换乘|可以换乘|属于|是哪|是几|经过|途经|的线路|线路|地铁线路|地铁|站点信息|站点|车站|查询|线).*$/,"").replace(/^从/,"");
+  const stationText=stationQuestion(question);
   const matches=findMetroStations(city,stationText);
-  if(matches.length>1)return clarify(city,"站名",matches);
-  if(matches.length===1){const s=matches[0],lines=[...new Set([...s.lines].map(id=>index.lines.get(id)!.name))];return {...response(city),answer:city+"“"+s.name+"”在当前快照中属于："+lines.join("、")+"。",columns:["站点","所属线路"],rows:[[s.name,lines.join("、")]]};}
+  const chosen=details.station_id?matches.find(s=>s.id===details.station_id):matches.length===1?matches[0]:undefined;
+  const stationSlots={action:"metro",city,transport:"transit"};
+  if(details.station_id&&!chosen)return clarify(city,"station",matches,question,stationSlots,true);
+  if(matches.length>1&&!chosen)return clarify(city,"station",matches,question,stationSlots);
+  if(chosen){const s=chosen,lines=[...new Set([...s.lines].map(id=>index.lines.get(id)!.name))];return {...response(city),slots:{...stationSlots,station_id:s.id},answer:city+"“"+s.name+"”在当前快照中属于："+lines.join("、")+"。",columns:["站点","所属线路"],rows:[[s.name,lines.join("、")]]};}
   const stations=metroStations(city);return {...response(city),answer:city+"已导入 "+stations.length+" 个轨道站点。可以问“某站怎么去某站”或“某号线有哪些站”。",columns:["站点","所属线路"],rows:stations.slice(0,200).map(s=>[s.name,s.lines.join("、")]),...(stations.length>200?{notice:"本次显示前200站；出行表单中的站名提示和按线路浏览包含完整已导入站点。"}:{})};
 }

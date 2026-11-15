@@ -38,11 +38,17 @@ export function parseTravelContext(question,history=[],cities=[]){
   return result;
 }
 export function resolveTravel(question,history=[],details={},cities=[]){
-  const parsed=parseTravelContext(question,history,cities),keys=['city','origin','destination','transport','action','road','strategy'];
+  const parsed=parseTravelContext(question,history,cities),keys=['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id'];
   const fallback={};for(const key of keys)if(typeof details[key]==='string'&&details[key].trim())fallback[key]=details[key].trim();
   if(details.contextual==='true'){
     const slots={...(isTravelFollowup(question)?fallback:{}),...parsed};
     if(details.located==='true'&&!slots.city)slots.city=fallback.city;
+    const cityName=value=>compact(value).replace(/市$/,''),stationName=value=>{let name=compact(value).normalize('NFKC').replace(/\([^)]*\)|（[^）]*）/g,'');const city=cityName(fallback.city);if(city&&name.startsWith(city))name=name.slice(city.length).replace(/^市/,'');return name.replace(/(?:地铁站|站)$/,'');};
+    if(cityName(slots.city)!==cityName(fallback.city)){delete slots.origin_id;delete slots.destination_id;delete slots.station_id;}
+    for(const endpoint of ['origin','destination'])if(stationName(slots[endpoint])!==stationName(fallback[endpoint]))delete slots[endpoint+'_id'];
+    const explicit=explicitTravel(question,cities);
+    for(const endpoint of ['origin','destination'])if(explicit[endpoint]&&compact(explicit[endpoint])!==compact(fallback[endpoint]))delete slots[endpoint+'_id'];
+    if(explicit.origin||explicit.destination||explicit.action==='route')delete slots.station_id;
     return slots;
   }
   return {...parsed,...fallback};

@@ -8,6 +8,8 @@ await writeFile("outputs/travel-context-browser.js",travelBrowser.outputFiles[0]
 
 const sources={
   "/app/workspace.css":["public/workspace.css","text/css; charset=utf-8"],
+  "/app/favorites-store.js":["public/favorites-store.js","text/javascript; charset=utf-8"],
+  "/app/route-ui.js":["public/route-ui.js","text/javascript; charset=utf-8"],
   "/manifest.webmanifest":["public/manifest.webmanifest","application/manifest+json; charset=utf-8"],
   "/sw.js":["public/sw.js","text/javascript; charset=utf-8"],
   "/app/pwa.js":["public/pwa.js","text/javascript; charset=utf-8"],
