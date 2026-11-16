@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f7f2">
+  <meta name="description" content="上传文档，提炼重点，继续追问。随时打开网址，使用 DeepSeek 阅读文档、提炼重点并继续追问。">
+  <title>知页 · 在线文档问答</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5.5C8.5 3 4 4 3 4.5v15c3-1.5 6-1 9 1 3-2 6-2.5 9-1v-15c-1-.5-5.5-1.5-9 1Zm0 0v15"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8Zm0 0v5h5M8 12h8m-8 4h6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m7 10 5-5 5 5M12 5v14"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7ZM20 2v4m-2-2h4"/></symbol>
+    <symbol id="i-lines" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11a8.5 8.5 0 0 1-9 8H6l-4 3 1-7a8 8 0 0 1-1-4 8.5 8.5 0 0 1 9-8h1a8.5 8.5 0 0 1 9 8ZM7 10h10m-10 4h6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 8h12v13H9ZM15 8V3H3v13h6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 2 2 8 5 15c5 8 16 0 15-12ZM4 21 16 8"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="知页首页"><span class="brand-mark"><svg class="icon"><use href="#i-book"/></svg></span><span class="brand-name">知页</span><span class="brand-divider"></span><span class="brand-caption">与你的文档对话</span></a>
+    <div class="header-actions"><span id="mode-badge" class="mode-badge"><span class="status-dot"></span><span id="mode-label">连接中</span></span><button id="settings-button" class="button button-quiet" type="button"><svg class="icon"><use href="#i-settings"/></svg><span>使用说明</span></button></div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="文档管理">
+      <div class="sidebar-title"><span>我的文档</span><span class="micro-label">WORKSPACE</span></div>
+      <button id="new-chat" class="button new-chat" type="button"><svg class="icon"><use href="#i-plus"/></svg>新对话<span class="new-chat-hint">重新开始</span></button>
+      <input id="file-input" type="file" accept=".txt,.md,.markdown" hidden>
+      <button id="upload-zone" class="upload-zone" type="button"><span class="upload-icon"><svg class="icon"><use href="#i-upload"/></svg></span><strong>点击或拖入文档</strong><span>TXT / Markdown</span><small>最多 24,000 字符 · 256 KB</small></button>
+      <div class="section-caption">当前文档 <span id="document-count">0</span></div>
+      <div id="empty-document" class="empty-document"><svg class="icon"><use href="#i-file"/></svg><p>还没有文档<br><span>从一个好问题开始阅读</span></p></div>
+      <div id="document-card" class="document-card" hidden>
+        <div class="document-card-top"><span class="file-icon"><svg class="icon"><use href="#i-file"/></svg></span><div class="file-info"><strong id="document-name"></strong><span id="document-size"></span></div><svg class="icon selected-check"><use href="#i-check"/></svg></div>
+        <button id="preview-button" class="preview-button" type="button"><svg class="icon"><use href="#i-eye"/></svg>查看原文<svg class="icon"><use href="#i-right"/></svg></button>
+      </div>
+      <div class="sample-card"><span class="sample-eyebrow">没有文档？试试这一份</span><div class="sample-name"><span>📖</span><div><strong>小岛读书会</strong><small>一份轻松的活动计划</small></div></div><button id="sample-button" type="button">使用示例文档<svg class="icon"><use href="#i-right"/></svg></button></div>
+      <div class="sidebar-bottom"><svg class="icon"><use href="#i-leaf"/></svg><p>让阅读轻一点<span>文档仅在当前会话中保留</span></p></div>
+    </aside>
+
+    <main class="main-panel">
+      <div class="workspace-bar"><div class="workspace-path"><span>工作台</span><span class="path-divider">/</span><strong id="workspace-title">新的阅读</strong></div><span id="workspace-state" class="workspace-state"><span></span>准备就绪</span></div>
+      <div id="conversation-scroll" class="conversation-scroll">
+        <section id="welcome" class="welcome">
+          <div class="welcome-visual" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="floating-dot dot-one"></span><span class="floating-dot dot-two"></span><div class="paper paper-back"></div><div class="paper paper-front"><span class="paper-kicker">a little clarity.</span><span class="paper-line long"></span><span class="paper-line"></span><span class="paper-highlight"></span><span class="paper-line short"></span><span class="paper-fold"></span></div><span class="visual-star">✳</span></div>
+          <p class="eyebrow">LESS SCROLLING, MORE UNDERSTANDING</p>
+          <h1>把长文，<span>读成答案。</span></h1>
+          <p id="welcome-description" class="welcome-description">上传一份文档，提炼重点，理清思路。<br>每一次追问，都更靠近你想知道的事。</p>
+          <div class="prompt-grid">
+            <button class="prompt-card" data-prompt="请总结这份文档的核心内容，并列出最重要的三个要点。" type="button"><span class="prompt-icon peach"><svg class="icon"><use href="#i-lines"/></svg></span><strong>快速读懂</strong><span>总结文档，抓住核心要点</span><svg class="icon card-arrow"><use href="#i-right"/></svg></button>
+            <button class="prompt-card" data-prompt="请提取文档中的时间、地点、人物和其他关键事实，并标注原文行号。" type="button"><span class="prompt-icon sage"><svg class="icon"><use href="#i-spark"/></svg></span><strong>提炼重点</strong><span>找到细节，让信息更清晰</span><svg class="icon card-arrow"><use href="#i-right"/></svg></button>
+            <button class="prompt-card" data-prompt="根据这份文档，我需要做哪些准备？请整理为一份待办清单，并标注依据。" type="button"><span class="prompt-icon lavender"><svg class="icon"><use href="#i-chat"/></svg></span><strong>继续探索</strong><span>问出问题，发现更多可能</span><svg class="icon card-arrow"><use href="#i-right"/></svg></button>
+          </div>
+          <div id="welcome-tip" class="welcome-tip"><span>01</span> 在左侧上传文档，或使用示例开始体验</div>
+        </section>
+        <section id="messages" class="messages" aria-label="对话记录" aria-live="off" hidden></section>
+      </div>
+
+      <div class="composer-area">
+        <div id="mode-notice" class="mode-notice" hidden><span class="notice-dot"></span><span>服务正在准备，请稍后刷新页面</span><button id="notice-config" type="button">查看说明 <span>↗</span></button></div>
+        <form id="chat-form" class="composer"><div id="attached-document" class="attached-document" hidden><svg class="icon"><use href="#i-file"/></svg><span id="attached-name"></span></div><label for="question" class="sr-only">输入关于文档的问题</label><textarea id="question" rows="1" maxlength="4000" placeholder="先上传一份文档，开始你的第一个问题…" disabled></textarea><div class="composer-bottom"><div class="composer-hint"><span id="composer-model">DeepSeek</span><span class="hint-separator">·</span><span id="keyboard-hint">Enter 发送 / Shift + Enter 换行</span></div><button id="send-button" class="send-button" type="submit" aria-label="发送问题" disabled><svg class="icon"><use href="#i-arrow"/></svg></button></div></form>
+        <p class="footnote">答案值得追问，事实值得核对。<span>知页 · 让每一页更有所得</span></p>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="settings-dialog" class="modal config-modal" aria-labelledby="settings-title"><div class="modal-header"><div><span class="eyebrow">YOUR READING COMPANION</span><h2 id="settings-title">打开一页，读懂更多</h2></div><button class="icon-button" data-close-dialog="settings-dialog" aria-label="关闭说明" type="button"><svg class="icon"><use href="#i-close"/></svg></button></div><p class="modal-description">你的在线文档阅读空间。无需注册，打开网址就能开始。</p><ol class="setup-steps"><li><span>1</span><div><strong>放入一份文档</strong><p>上传或拖入 TXT / Markdown 文件，最多 24,000 字符。也可以先使用左侧的示例文档。</p></div></li><li><span>2</span><div><strong>问出你想知道的事</strong><p>总结要点、提取时间与人物，或者继续追问。回答会实时显示，点击方块即可停止。</p></div></li><li><span>3</span><div><strong>回到原文，核对答案</strong><p>点击「查看原文」查看行号。新对话保留文档，上传新文件则开始新的对话。</p></div></li></ol><div class="config-note">本站全站每日最多 100 次问答、每分钟最多 5 次；每日额度在北京时间零点重置。提问时，当前文档和对话会经云端服务发送给 DeepSeek。网站不保存文档或对话到数据库，刷新或关闭页面后会清空。</div><button class="button button-primary modal-done" data-close-dialog="settings-dialog" type="button">开始阅读</button></dialog>
+  <dialog id="preview-dialog" class="modal preview-modal" aria-labelledby="preview-title"><div class="modal-header"><div><span class="eyebrow">DOCUMENT PREVIEW</span><h2 id="preview-title">文档原文</h2></div><button class="icon-button" data-close-dialog="preview-dialog" aria-label="关闭原文" type="button"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="preview-content" class="preview-content"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
