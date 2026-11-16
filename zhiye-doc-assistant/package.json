@@ -3,9 +3,19 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.22.1 <25 || >=26.12.1"
+  },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "pretest": "node scripts/ensure-dependencies.mjs"
+  },
+  "dependencies": {
+    "chardet": "2.1.1",
+    "fflate": "0.8.3",
+    "iconv-lite": "0.7.2",
+    "officeparser": "8.8.0",
+    "word-extractor": "1.0.4"
   }
 }

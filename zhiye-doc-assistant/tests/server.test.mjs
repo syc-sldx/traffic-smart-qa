@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createApplication } from "../server.mjs";
+import { docxFixture } from "./fixtures.mjs";
 
 test("standalone HTTP app serves assets, uploads, chat and origin/security boundaries", async () => {
   let providerCalls = 0;
@@ -27,6 +28,10 @@ test("standalone HTTP app serves assets, uploads, chat and origin/security bound
     const upload = await fetch(base + "/api/documents", { method: "POST", body: file, headers: { Origin: base } });
     assert.equal(upload.status, 200);
     const document = await upload.json();
+    const wordFile = new FormData(); wordFile.append("file", new File([docxFixture()], "upload.docx"));
+    const wordResponse = await fetch(base + "/api/documents", { method: "POST", body: wordFile, headers: { Origin: base } });
+    assert.equal(wordResponse.status, 200);
+    assert.ok((await wordResponse.json()).content.includes("中文文档测试"));
     const request = { document: { name: document.name, content: document.content }, messages: [{ role: "user", content: "活动时间？" }] };
     const response = await fetch(base + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Origin: base }, body: JSON.stringify(request) });
     assert.equal(response.status, 200);

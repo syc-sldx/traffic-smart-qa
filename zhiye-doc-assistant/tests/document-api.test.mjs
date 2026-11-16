@@ -48,7 +48,7 @@ test("UTF-8 and GB18030 uploads decode; invalid and oversized files fail", async
     assert.equal(result.status, 200);
     assert.equal((await result.json()).content, "中文");
   }
-  for (const [name, content] of [["a.pdf", "bad"], ["a.txt", " "], ["a.txt", "bad\x00binary"], ["a.txt", "x".repeat(24001)], ["a.txt", "x".repeat(262145)]]) {
+  for (const [name, content] of [["a.pdf", "bad"], ["a.txt", " "], ["a.txt", "bad\x00binary"], ["a.txt", "x".repeat(24001)], ["a.txt", "x".repeat(LIMITS.fileBytes + 1)]]) {
     const data = new FormData(); data.append("file", new File([content], name));
     assert.equal((await api("/api/documents", { method: "POST", body: data })).status, 400);
   }

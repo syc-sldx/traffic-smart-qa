@@ -1,8 +1,11 @@
 import { consumePublicQuota, PUBLIC_LIMITS } from "./public-quota.mjs";
+import { AppError } from "./errors.mjs";
+import { LIMITS, SUPPORTED, normalizeText, extractDocument } from "./documents.mjs";
+export { LIMITS, normalizeText } from "./documents.mjs";
+export { AppError } from "./errors.mjs";
 
 // This API supports anonymous visitors. Credentials stay server-side, and paid
 // requests must pass a persistent, atomic site-wide usage reservation first.
-export const LIMITS = Object.freeze({ fileBytes: 262144, documentChars: 24000, bodyBytes: 1048576 });
 const encoder = new TextEncoder();
 const responseHeaders = {
   "Cache-Control": "no-store",
@@ -16,9 +19,6 @@ const SYSTEM_PROMPT = `你是“知页”的文档阅读助手，使用简体中
 结合当前文档与此前对话理解追问。用户要求总结时，概括主题、关键事实和下一步。
 不要声称访问了网络或读取了未提供的文件。`;
 
-export class AppError extends Error {
-  constructor(message, status = 400) { super(message); this.status = status; }
-}
 
 function json(data, status = 200) {
   return Response.json(data, { status, headers: responseHeaders });
@@ -30,14 +30,6 @@ function assertShape(value, fields) {
   }
 }
 
-export function normalizeText(text) {
-  if (typeof text !== "string") throw new AppError("文档内容必须是文本。", 422);
-  text = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
-  if (!text) throw new AppError("文档没有可读取的文字，请换一个文件。");
-  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text)) throw new AppError("这个文件不像纯文本，请上传 TXT 或 Markdown 文件。");
-  if (text.length > LIMITS.documentChars) throw new AppError("文档超过 24,000 字符，请拆分后上传。");
-  return text;
-}
 
 function documentInfo(name, content) {
   return { name, content, characters: content.length, lines: content.split("\n").length };
@@ -71,19 +63,10 @@ async function uploadDocument(request, body) {
   const contentType = request.headers.get("content-type") || "";
   let form;
   try { form = await new Response(body, { headers: { "Content-Type": contentType } }).formData(); }
-  catch { throw new AppError("请选择 TXT 或 Markdown 文件后重试。"); }
+  catch { throw new AppError("无法读取上传文件，请重新选择文档后重试。"); }
   const file = form.get("file");
   if (!file || typeof file.arrayBuffer !== "function") throw new AppError("没有收到文档文件。");
-  const name = String(file.name).replaceAll("\\", "/").split("/").pop().slice(0, 160);
-  if (!/\.(txt|md|markdown)$/i.test(name)) throw new AppError("暂时只支持 .txt、.md 和 .markdown 文件。");
-  if (file.size > LIMITS.fileBytes) throw new AppError("文件超过 256 KB，请选择较小的文本文件。");
-  const bytes = await file.arrayBuffer();
-  let text;
-  for (const encoding of ["utf-8", "gb18030"]) {
-    try { text = new TextDecoder(encoding, { fatal: true }).decode(bytes); break; } catch {}
-  }
-  if (text === undefined) throw new AppError("无法识别文字编码，请将文档保存为 UTF-8 后重试。");
-  return documentInfo(name, normalizeText(text));
+  return extractDocument(file);
 }
 
 export function validateChat(body) {
@@ -240,7 +223,7 @@ export async function handleApi(request, env, options = {}) {
     const key = typeof env.LLM_API_KEY === "string" ? env.LLM_API_KEY.trim() : "";
     const model = env.LLM_MODEL || "deepseek-flash";
     if (request.method === "GET" && pathname === "/api/health") {
-      return json({ app: "zhiye-doc-assistant", status: "ok", mode: key ? "live" : "unconfigured", model, max_document_chars: LIMITS.documentChars, max_file_bytes: LIMITS.fileBytes, usage_limits: PUBLIC_LIMITS });
+      return json({ app: "zhiye-doc-assistant", status: "ok", mode: key ? "live" : "unconfigured", model, max_document_chars: LIMITS.documentChars, max_file_bytes: LIMITS.fileBytes, supported_formats: SUPPORTED, usage_limits: PUBLIC_LIMITS });
     }
     if (request.method === "GET" && pathname === "/api/sample") {
       return json(documentInfo("小岛读书会.md", normalizeText(options.sample || "")));

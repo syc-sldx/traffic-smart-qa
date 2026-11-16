@@ -38,13 +38,13 @@
     <aside class="sidebar" aria-label="文档管理">
       <div class="sidebar-title"><span>我的文档</span><span class="micro-label">WORKSPACE</span></div>
       <button id="new-chat" class="button new-chat" type="button"><svg class="icon"><use href="#i-plus"/></svg>新对话<span class="new-chat-hint">重新开始</span></button>
-      <input id="file-input" type="file" accept=".txt,.md,.markdown" hidden>
-      <button id="upload-zone" class="upload-zone" type="button"><span class="upload-icon"><svg class="icon"><use href="#i-upload"/></svg></span><strong>点击或拖入文档</strong><span>TXT / Markdown</span><small>最多 24,000 字符 · 256 KB</small></button>
+      <input id="file-input" type="file" hidden>
+      <button id="upload-zone" class="upload-zone" type="button"><span class="upload-icon"><svg class="icon"><use href="#i-upload"/></svg></span><strong>点击或拖入文档</strong><span>文本 / PDF / Word 等</span><small>文件 ≤ 8 MB · 文字 ≤ 24,000 字符</small></button>
       <div class="section-caption">当前文档 <span id="document-count">0</span></div>
       <div id="empty-document" class="empty-document"><svg class="icon"><use href="#i-file"/></svg><p>还没有文档<br><span>从一个好问题开始阅读</span></p></div>
       <div id="document-card" class="document-card" hidden>
         <div class="document-card-top"><span class="file-icon"><svg class="icon"><use href="#i-file"/></svg></span><div class="file-info"><strong id="document-name"></strong><span id="document-size"></span></div><svg class="icon selected-check"><use href="#i-check"/></svg></div>
-        <button id="preview-button" class="preview-button" type="button"><svg class="icon"><use href="#i-eye"/></svg>查看原文<svg class="icon"><use href="#i-right"/></svg></button>
+        <button id="preview-button" class="preview-button" type="button"><svg class="icon"><use href="#i-eye"/></svg>查看提取文字<svg class="icon"><use href="#i-right"/></svg></button>
       </div>
       <div class="sample-card"><span class="sample-eyebrow">没有文档？试试这一份</span><div class="sample-name"><span>📖</span><div><strong>小岛读书会</strong><small>一份轻松的活动计划</small></div></div><button id="sample-button" type="button">使用示例文档<svg class="icon"><use href="#i-right"/></svg></button></div>
       <div class="sidebar-bottom"><svg class="icon"><use href="#i-leaf"/></svg><p>让阅读轻一点<span>文档仅在当前会话中保留</span></p></div>
@@ -76,7 +76,7 @@
     </main>
   </div>
 
-  <dialog id="settings-dialog" class="modal config-modal" aria-labelledby="settings-title"><div class="modal-header"><div><span class="eyebrow">YOUR READING COMPANION</span><h2 id="settings-title">打开一页，读懂更多</h2></div><button class="icon-button" data-close-dialog="settings-dialog" aria-label="关闭说明" type="button"><svg class="icon"><use href="#i-close"/></svg></button></div><p class="modal-description">你的在线文档阅读空间。无需注册，打开网址就能开始。</p><ol class="setup-steps"><li><span>1</span><div><strong>放入一份文档</strong><p>上传或拖入 TXT / Markdown 文件，最多 24,000 字符。也可以先使用左侧的示例文档。</p></div></li><li><span>2</span><div><strong>问出你想知道的事</strong><p>总结要点、提取时间与人物，或者继续追问。回答会实时显示，点击方块即可停止。</p></div></li><li><span>3</span><div><strong>回到原文，核对答案</strong><p>点击「查看原文」查看行号。新对话保留文档，上传新文件则开始新的对话。</p></div></li></ol><div class="config-note">本站全站每日最多 100 次问答、每分钟最多 5 次；每日额度在北京时间零点重置。提问时，当前文档和对话会经云端服务发送给 DeepSeek。网站不保存文档或对话到数据库，刷新或关闭页面后会清空。</div><button class="button button-primary modal-done" data-close-dialog="settings-dialog" type="button">开始阅读</button></dialog>
+  <dialog id="settings-dialog" class="modal config-modal" aria-labelledby="settings-title"><div class="modal-header"><div><span class="eyebrow">YOUR READING COMPANION</span><h2 id="settings-title">打开一页，读懂更多</h2></div><button class="icon-button" data-close-dialog="settings-dialog" aria-label="关闭说明" type="button"><svg class="icon"><use href="#i-close"/></svg></button></div><p class="modal-description">你的在线文档阅读空间。无需注册，打开网址就能开始。</p><ol class="setup-steps"><li><span>1</span><div><strong>放入一份文档</strong><p>支持各类纯文本、CSV、JSON、代码、日志、字幕，以及 PDF、Word（DOC/DOCX）、RTF、HTML、EPUB、ODT、XLSX、PPTX 等。文件不超过 8 MB，提取文字不超过 24,000 字符；扫描 PDF 需要先做 OCR。也可以先使用左侧示例。</p></div></li><li><span>2</span><div><strong>问出你想知道的事</strong><p>总结要点、提取时间与人物，或者继续追问。回答会实时显示，点击方块即可停止。</p></div></li><li><span>3</span><div><strong>回到原文，核对答案</strong><p>点击「查看提取文字」查看行号。新对话保留文档，上传新文件则开始新的对话。</p></div></li></ol><div class="config-note">本站全站每日最多 100 次问答、每分钟最多 5 次；每日额度在北京时间零点重置。提问时，当前文档和对话会经云端服务发送给 DeepSeek。网站不保存文档或对话到数据库，刷新或关闭页面后会清空。</div><button class="button button-primary modal-done" data-close-dialog="settings-dialog" type="button">开始阅读</button></dialog>
   <dialog id="preview-dialog" class="modal preview-modal" aria-labelledby="preview-title"><div class="modal-header"><div><span class="eyebrow">DOCUMENT PREVIEW</span><h2 id="preview-title">文档原文</h2></div><button class="icon-button" data-close-dialog="preview-dialog" aria-label="关闭原文" type="button"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="preview-content" class="preview-content"></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>

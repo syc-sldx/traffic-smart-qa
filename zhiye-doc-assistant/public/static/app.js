@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { document: null, history: [], busy: false, loading: false, controller: null, mode: "live", connected: false };
+const state = { document: null, history: [], busy: false, loading: false, controller: null, mode: "live", connected: false, maxFileBytes: 8 * 1024 * 1024 };
 let toastTimer;
 
 function icon(name) {
@@ -32,7 +32,7 @@ function updateControls() {
 
 async function responseJson(response) {
   let body;
-  try { body = await response.json(); } catch { throw new Error("暂时无法读取服务响应，请确认已登录并刷新页面。"); }
+  try { body = await response.json(); } catch { throw new Error("暂时无法读取服务响应，请刷新页面后重试。"); }
   if (!response.ok) {
     const message = typeof body.detail === "string" ? body.detail : response.status === 422 ? "文档、问题或对话超出限制，请缩短内容，或点击「新对话」后重试。" : "请求失败，请稍后重试。";
     throw new Error(message);
@@ -44,6 +44,7 @@ async function checkHealth() {
   try {
     const health = await responseJson(await fetch("/api/health"));
     state.mode = health.mode;
+    state.maxFileBytes = health.max_file_bytes || state.maxFileBytes;
     state.connected = health.mode === "live";
     const live = health.mode === "live";
     $("mode-badge").classList.toggle("is-live", live);
@@ -77,7 +78,7 @@ function selectDocument(doc) {
   $("document-count").textContent = "1";
   $("document-name").textContent = doc.name;
   $("document-name").title = doc.name;
-  $("document-size").textContent = `${doc.characters.toLocaleString()} 字符 · ${doc.lines} 行`;
+  $("document-size").textContent = `${doc.format ? doc.format + " · " : ""}${doc.characters.toLocaleString()} 字符 · ${doc.lines} 行`;
   $("workspace-title").textContent = doc.name;
   $("attached-name").textContent = doc.name;
   $("attached-document").hidden = false;
@@ -110,8 +111,7 @@ async function loadDocument(loader) {
 
 async function uploadFile(file) {
   if (!file) return;
-  if (!/\.(txt|md|markdown)$/i.test(file.name)) { toast("请选择 TXT 或 Markdown 文件。", true); return; }
-  if (file.size > 256 * 1024) { toast("文件超过 256 KB，请拆分后重试。", true); return; }
+  if (file.size > state.maxFileBytes) { toast("文件超过 8 MB，请拆分后重试。", true); return; }
   const form = new FormData();
   form.append("file", file);
   await loadDocument(() => fetch("/api/documents", { method: "POST", body: form }));
