@@ -9,7 +9,9 @@ const evidenceBrowser=await build({entryPoints:["shared/answer-evidence.mjs"],bu
 await writeFile("outputs/answer-evidence-browser.js",evidenceBrowser.outputFiles[0].text);
 
 const sources={
+  "/app/travel-preferences.js":["public/travel-preferences.js","text/javascript; charset=utf-8"],
   "/app/workspace.css":["public/workspace.css","text/css; charset=utf-8"],
+  "/app/device-backup.js":["public/device-backup.js","text/javascript; charset=utf-8"],
   "/app/favorites-store.js":["public/favorites-store.js","text/javascript; charset=utf-8"],
   "/app/route-ui.js":["public/route-ui.js","text/javascript; charset=utf-8"],
   "/app/answer-evidence.js":["outputs/answer-evidence-browser.js","text/javascript; charset=utf-8"],

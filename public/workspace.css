@@ -43,3 +43,47 @@ button{transition:background .16s,border-color .16s,color .16s}
 .answer-evidence{margin:0 0 14px;padding:9px 11px;background:#f7f9fc;border:1px solid #e7edf5;border-radius:7px}.evidence-line{display:flex;align-items:center;gap:5px 12px;flex-wrap:wrap}.evidence-type{font-size:11px;font-weight:500;color:#567aa7}.evidence-date{font-size:11px;color:#7186a1;overflow-wrap:anywhere}.evidence-history{font-size:9px;border:1px solid #e0e7f0;border-radius:4px;padding:1px 5px;color:#8997a9;margin-left:auto}.evidence-note{font-size:10px;line-height:1.8;margin:4px 0 0;color:#8a99ac;overflow-wrap:anywhere}
 .query-progress{order:1;min-width:0}.query-active .welcome,.query-active .suggestions,.query-active .page-foot,.query-active #route-context,.query-active #voice-status{display:none}.query-active #log{display:flex;flex-direction:column;gap:24px}.query-active .workspace-content{padding-top:28px;gap:24px}.query-active .composer-area{position:relative;bottom:auto;margin-top:0}.pending-query{padding:15px 17px;border:1px solid #e0e8f3;border-radius:9px;background:#f8faff}.pending-line{display:grid;grid-template-columns:16px minmax(0,1fr) auto;column-gap:10px;align-items:center}.pending-spinner{grid-column:1;grid-row:1;width:13px;height:13px;border:2px solid #d9e5f6;border-top-color:#698dc1;border-radius:50%;animation:query-spin 1s linear infinite}.pending-title{grid-column:2;grid-row:1;font-size:12px;color:#5b7597}.pending-elapsed{grid-column:2;grid-row:2;font-size:10px;color:#91a0b4;margin-top:2px}.pending-cancel{grid-column:3;grid-row:1/span 2;border:1px solid #dce6f4;background:#fff;border-radius:6px;min-height:34px;padding:5px 10px;color:#7190b6;font-size:11px;white-space:nowrap}.pending-cancel:hover{background:#edf4ff}.pending-note{font-size:10px;color:#8b9db4;line-height:1.8;margin:10px 0 0}.query-state{padding:13px 15px;border:1px solid #e1e8f1;border-radius:8px;background:#f8fafc;display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:12px;color:#7d8fa7}.query-state.query-timeout{border-color:#ece4d3;background:#fcfaf5;color:#9a8866}.query-retry{min-height:34px;white-space:nowrap;border:1px solid #dae4f2;background:#fff;border-radius:6px;font-size:11px;color:#6d8bb0;padding:5px 10px}.cancel-query{min-height:38px;border:1px solid #dce5f1;background:#f4f7fc;border-radius:7px;padding:7px 10px;color:#748ba8;font-size:11px;white-space:nowrap}.cancel-query:hover{background:#eaf1fb}@keyframes query-spin{to{transform:rotate(360deg)}}
 @media(max-width:600px){.answer-evidence{padding:8px 10px;margin-bottom:12px}.evidence-line{gap:4px 9px}.evidence-type,.evidence-date{font-size:10px}.evidence-note{font-size:9px;line-height:1.8}.evidence-history{font-size:8px}.query-active #log{gap:18px}.query-active .workspace-content{padding-top:20px;gap:18px}.pending-query{padding:13px 12px}.pending-line{column-gap:8px}.pending-title{font-size:11px}.pending-elapsed,.pending-note{font-size:9px}.pending-cancel{min-height:40px;font-size:10px;padding:5px 8px}.query-state{font-size:11px;padding:11px 12px;flex-wrap:wrap}.query-retry{min-height:40px;font-size:10px}.cancel-query{min-height:44px;font-size:10px;padding:7px 8px}}
+.travel-defaults {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+.travel-defaults #travel-prefs-open {
+  min-height: 32px;
+  color: #365e91;
+}
+#travel-prefs-label:not(:empty) {
+  color: #597088;
+  font-size: 10px;
+}
+.travel-validation {
+  margin-top: 9px;
+  font-size: 11px;
+  color: #943d3f;
+}
+#travel-panel input[aria-invalid="true"] {
+  border-color: #c67b80;
+}
+#travel-prefs-form #travel-prefs-reset {
+  margin-left: 12px;
+}
+@media (max-width: 600px) {
+  .travel-defaults #travel-prefs-open { min-height: 44px; }
+}
+.device-backup-panel > label,
+.device-backup-panel #device-backup-file {
+  display: block;
+  margin: 8px 0;
+  max-width: 100%;
+}
+.device-backup-panel #device-backup-data {
+  resize: vertical;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px;
+  color: #263649;
+}
+.device-backup-panel .memory-actions {
+  flex-wrap: wrap;
+}

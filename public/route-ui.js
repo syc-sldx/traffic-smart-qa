@@ -79,5 +79,6 @@
   get('favorites-open').onclick=openFavorites;get('favorites-close').onclick=()=>get('favorites-dialog').close();get('favorites-search').oninput=refreshFavorites;
   get('favorites-removed').onclick=()=>{removed=!removed;get('favorites-removed').textContent=removed?'返回收藏':'已移除';get('favorites-removed').setAttribute('aria-pressed',String(removed));refreshFavorites();};
   window.addEventListener('storage',event=>{if(event.key?.startsWith('trafficqa:favorites:v1:'))changed();});refreshCount();
+  window.addEventListener('traffic-device-restore',changed);
   window.TrafficRoutes={canRender,summary,render,bindChoices,conditions};
 })();

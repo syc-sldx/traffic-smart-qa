@@ -35,6 +35,8 @@
       const follow=window.TrafficTravel?.isTravelFollowup(text)||!text;
       if(!/(?:当前|我的)位置/.test(text)&&!currentOrigin(context.origin)&&!(follow&&currentOrigin(get('origin').value)))return {};
       if(!valid())return {};
+      // A retry may carry a previous route city. Never attach a fix from another city.
+      if(context.city&&context.city.trim().replace(/市$/,'')!==current.city)return {};
       return {city:current.city,origin:'当前位置',origin_location:current.location,action:'route',located:'true'};
     }
   };

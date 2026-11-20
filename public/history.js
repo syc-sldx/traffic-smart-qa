@@ -76,6 +76,11 @@
   async function initialize(){
     try{const value=await api('/api/auth/me');state.enabled=value.enabled;state.user=value.user;}catch{}controls();try{if(state.user)window.TrafficChat.profile(state.user.profile);await refresh(true);}catch(error){showError(error);}
   }
+  window.addEventListener('traffic-device-restore',()=>{
+    if(state.user)return;
+    try{get('local-count').textContent='本机保存了 '+local().count()+' 段对话（含回收站）。';}catch{}
+    refresh().catch(showError);
+  });
   const ready=initialize();
   window.TrafficHistory={ready,authenticated:()=>!!state.user,threadId:()=>state.user?state.current:null,
     newChat(){if(state.busy)return;state.current=null;state.lastTurn=null;rememberId();document.querySelectorAll('.history-item').forEach(item=>item.classList.remove('active'));},

@@ -24,8 +24,10 @@
 <script defer src="/app/query-client.js"></script>
 <script defer src="/app/query-ui.js"></script>
 <script defer src="/app/favorites-store.js"></script>
+<script defer src="/app/device-backup.js"></script>
 <script defer src="/app/route-ui.js"></script>
 <script defer src="/app/history.js"></script>
+<script defer src="/app/travel-preferences.js"></script>
 <script defer src="/app/location.js"></script>
 <style>
 :root{color-scheme:light;--bg:#f5f7fa;--surface:#fff;--nav:#10243a;--text:#182c43;--muted:#7b8898;--line:#e6ebf1;--blue:#2864ec;--teal:#17a58a;--shadow:0 8px 32px #233d6010}
@@ -81,7 +83,7 @@
     <section class="composer-area" aria-label="提问">
       <div class="composer">
         <div id="route-context" class="route-context" hidden></div>
-        <details class="travel-settings" id="travel-settings" hidden><summary><svg class="icon"><use href="#i-route"/></svg>路线与路况设置</summary><section class="travel-panel" id="travel-panel" hidden aria-label="出行查询条件"><div class="form-title"><svg class="icon"><use href="#i-route"/></svg>设置你的出行</div><div class="fields"><label>查询类型<select id="action"><option value="metro">地铁站间换乘</option><option value="route">公交 / 驾车路线</option><option value="traffic">实时道路路况</option></select></label><label>城市<input id="city" list="metro-cities" placeholder="例如：南京" autocomplete="off"></label><label class="route-field">起点<input id="origin" list="metro-stations" placeholder="例如：南京南站" autocomplete="off"></label><label class="route-field">终点<input id="destination" list="metro-stations" placeholder="例如：新街口" autocomplete="off"></label><label class="route-field" id="transport-field">出行方式<select id="transport"><option value="transit">公交地铁</option><option value="driving">驾车</option><option value="walking">步行</option></select></label><label id="road-field" hidden>道路名称<input id="road" placeholder="例如：中山路"></label></div><div class="travel-actions"><span class="hint" id="travel-hint">填写两座地铁站，或点击下方站名依次设置起终点。</span><button class="primary" id="travel-go">查询出行</button></div>
+        <details class="travel-settings" id="travel-settings" hidden><summary><svg class="icon"><use href="#i-route"/></svg>路线与路况设置</summary><section class="travel-panel" id="travel-panel" hidden aria-label="出行查询条件"><div class="form-title"><svg class="icon"><use href="#i-route"/></svg>设置你的出行</div><div class="fields"><label>查询类型<select id="action"><option value="metro">地铁站间换乘</option><option value="route">公交 / 驾车路线</option><option value="traffic">实时道路路况</option></select></label><label>城市<input id="city" list="metro-cities" placeholder="例如：南京" autocomplete="off"></label><label class="route-field">起点<input id="origin" list="metro-stations" placeholder="例如：南京南站" autocomplete="off"></label><label class="route-field">终点<input id="destination" list="metro-stations" placeholder="例如：新街口" autocomplete="off"></label><label class="route-field" id="transport-field">出行方式<select id="transport"><option value="transit">公交地铁</option><option value="driving">驾车</option><option value="walking">步行</option></select></label><label id="strategy-field" hidden>公交路线偏好<select id="strategy"><option value="">地图默认</option><option value="2">少换乘</option><option value="3">少步行</option><option value="0">较快</option><option value="1">较省钱</option></select></label><label id="road-field" hidden>道路名称<input id="road" placeholder="例如：中山路"></label></div><div class="travel-defaults"><button id="travel-prefs-open" class="tool-button" type="button">本机出行偏好<span id="travel-prefs-label"></span></button></div><div id="travel-validation" class="travel-validation" role="status" hidden></div><div class="travel-actions"><span class="hint" id="travel-hint">填写两座地铁站，或点击下方站名依次设置起终点。</span><button class="primary" id="travel-go">查询出行</button></div>
 <div class="metro-browser" id="metro-browser" hidden><div class="metro-browser-heading"><strong>线路与站点</strong><button id="metro-map-link" type="button" hidden>直接显示地铁图</button></div><p id="metro-summary" class="hint">选择城市后加载站点资料。</p><label class="metro-line-label">浏览线路<select id="metro-line" aria-label="浏览地铁线路" disabled><option>正在加载…</option></select></label><div class="metro-station-list" id="metro-line-stations" aria-label="线路全部站点"></div></div>
 <datalist id="metro-cities"></datalist><datalist id="metro-stations"></datalist></section></details>
         <textarea id="q" aria-label="交通问题" placeholder="输入你的问题，例如：2025年南京地铁客运量是多少？" rows="2"></textarea>
@@ -94,8 +96,36 @@
     <footer class="page-foot">连接数据与出行<span>·</span>让交通问题更简单</footer>
   </div>
 </main>
+<dialog id="travel-prefs-dialog" class="install-dialog" aria-labelledby="travel-prefs-title">
+  <div class="install-heading"><div><h2 id="travel-prefs-title">本机出行偏好</h2><p>用于新对话的出行表单 · 仅此设备</p></div><button id="travel-prefs-close" class="install-dismiss" type="button" aria-label="关闭出行偏好">×</button></div>
+  <form id="travel-prefs-form" class="account-form">
+    <label>常用城市<input id="pref-city" list="metro-cities" maxlength="20" autocomplete="off" placeholder="例如：南京"></label>
+    <label>默认出行方式<select id="pref-mode"><option value="metro">地铁站间换乘</option><option value="transit">公交地铁路线</option><option value="walking">步行</option><option value="driving">驾车</option></select></label>
+    <label>公交路线偏好<select id="pref-strategy"><option value="">地图默认</option><option value="2">少换乘</option><option value="3">少步行</option><option value="0">较快</option><option value="1">较省钱</option></select></label>
+    <p class="account-note">公交路线偏好在选择“公交地铁”时生效。每次查询都能单独修改。</p>
+    <button class="primary" type="submit">保存设置</button><button id="travel-prefs-reset" class="account-link" type="button">恢复初始设置</button>
+    <p id="travel-prefs-status" role="status" class="account-result"></p>
+  </form>
+</dialog>
 <dialog id="favorites-dialog" class="install-dialog favorites-dialog" aria-labelledby="favorites-title"><div class="install-heading"><div><h2 id="favorites-title">常用路线</h2><p>保存查询条件，每次打开重新查询</p></div><button id="favorites-close" class="install-dismiss" aria-label="关闭常用路线">×</button></div><div class="favorites-tools"><input id="favorites-search" type="search" aria-label="搜索收藏路线" placeholder="搜索城市或站点"><button id="favorites-removed" type="button" aria-pressed="false">已移除</button></div><div id="favorites-list" class="favorites-list"></div><p id="favorites-status" class="account-note" role="status"></p></dialog>
-<dialog id="local-dialog" class="install-dialog" aria-labelledby="local-title"><div class="install-heading"><div><h2 id="local-title">本机记录管理</h2><p>仅保存在当前设备和当前浏览器</p></div><button id="local-close" class="install-dismiss" aria-label="关闭本机记录管理">×</button></div><p id="local-count" class="account-note"></p><label class="local-save-label"><input type="checkbox" id="local-save">保存后续问答到本机</label><p class="account-note">关闭保存不会删除已有记录。清理浏览器数据、卸载应用或更换设备可能导致记录丢失；共用设备上的其他使用者也能查看本机记录。设备定位坐标不会自动写入历史。</p><div class="memory-actions"><button type="button" class="account-link" id="local-export">显示本机备份</button><button type="button" class="account-link" id="local-copy" hidden>复制备份</button><button type="button" class="account-link" id="local-clear">清除全部本机记录</button></div><textarea id="local-backup" aria-label="本机历史备份" readonly hidden></textarea><p class="account-result" id="local-result" role="status"></p></dialog>
+<dialog id="local-dialog" class="install-dialog" aria-labelledby="local-title"><div class="install-heading"><div><h2 id="local-title">本机记录管理</h2><p>仅保存在当前设备和当前浏览器</p></div><button id="local-close" class="install-dismiss" aria-label="关闭本机记录管理">×</button></div><p id="local-count" class="account-note"></p><label class="local-save-label"><input type="checkbox" id="local-save">保存后续问答到本机</label><p class="account-note">关闭保存不会删除已有记录。清理浏览器数据、卸载应用或更换设备可能导致记录丢失；共用设备上的其他使用者也能查看本机记录。设备定位坐标不会自动写入历史。</p><div class="memory-actions"><button type="button" class="account-link" id="local-export">显示本机备份</button><button type="button" class="account-link" id="local-copy" hidden>复制备份</button><button type="button" class="account-link" id="local-clear">清除全部本机记录</button></div><textarea id="local-backup" aria-label="本机历史备份" readonly hidden></textarea><details id="device-backup-panel" class="device-backup-panel">
+ <summary>备份与导入（问答和常用路线）</summary>
+ <p class="account-note">把数据备份到自己的文件，换设备后可手动导入。先预览，再新增记录。现有记录保留。</p>
+ <div class="memory-actions">
+  <button class="account-link" id="device-backup-download" type="button">下载备份</button>
+  <button class="account-link" id="device-backup-make" type="button">生成备份文字</button>
+  <button class="account-link" id="device-backup-copy" type="button">复制文字</button>
+ </div>
+ <label class="account-note" for="device-backup-file">选择备份文件</label>
+ <input id="device-backup-file" type="file" accept=".json,application/json,text/plain">
+ <label class="account-note" for="device-backup-data">或粘贴备份文字</label>
+ <textarea id="device-backup-data" spellcheck="false" rows="4"></textarea>
+ <div class="memory-actions">
+  <button class="account-link" id="device-backup-preview" type="button">预览导入</button>
+  <button class="primary" id="device-backup-restore" type="button" hidden>确认导入</button>
+ </div>
+ <p id="device-backup-status" class="account-result" role="status"></p>
+</details><p class="account-result" id="local-result" role="status"></p></dialog>
 <dialog id="account-dialog" class="install-dialog" aria-labelledby="auth-title"><div class="install-heading"><div><h2 id="auth-title">登录账号</h2><p>手机、电脑同步历史问答与记忆</p></div><button id="account-close" class="install-dismiss" aria-label="关闭账号设置">×</button></div><div id="account-storage-note" class="account-disabled" hidden>云端历史存储尚未启用，暂时无法注册或同步。本机历史、公开问答和定位仍可使用；本机记录不会自动同步到其他设备。</div><form id="account-form" class="account-form"><label>用户名<input id="auth-username" name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,32}" minlength="3" maxlength="32" required placeholder="3—32位字母、数字或下划线"></label><label>密码<input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required placeholder="至少10位字符"></label><p id="auth-error" class="account-error" role="status"></p><button class="primary" id="auth-submit" type="submit">登录</button><button class="account-link" id="auth-toggle" type="button">还没有账号？注册</button><p class="account-note">登录后新问答自动保存到你的账号；未登录的临时问答不会跨设备同步。请保存好用户名和密码。</p></form><section class="memory-form" id="memory-settings" hidden><p class="account-name">当前账号：<strong id="account-name"></strong></p><label>常用城市<input id="profile-city" maxlength="30" placeholder="例如：南京"></label><label>默认出行方式<select id="profile-transport"><option value="transit">公交地铁</option><option value="walking">步行</option><option value="driving">驾车</option></select></label><label>希望助手长期记住的偏好<textarea id="profile-notes" maxlength="1200" placeholder="例如：优先少换乘，回答尽量简短。"></textarea></label><label class="check"><input id="profile-recall" type="checkbox" checked><span>允许从历史问答中检索相关上下文，帮助继续以前的话题。</span></label><div class="memory-actions"><button class="primary" id="memory-save" type="button">保存记忆</button><button class="account-link" id="history-export" type="button">导出历史备份</button><button class="account-link" id="account-logout" type="button">退出登录</button></div><p class="account-note">新对话不会删除旧记录；回收站里的对话不参与历史记忆检索。定位坐标不自动保存到记忆。</p></section><p id="account-result" class="account-result" role="status"></p></dialog>
 <dialog id="install-dialog" class="install-dialog" aria-labelledby="install-title"><div class="install-heading"><img src="/icons/app-192.png" alt=""><div><h2 id="install-title">把交通智问装到桌面</h2><p>你的城市交通助手</p></div><button class="install-dismiss" id="install-close" aria-label="关闭安装说明">×</button></div><p class="install-benefits">独立图标，一点即开。安装后可在独立窗口中查数据、看地铁图、规划换乘。</p><button class="primary install-now" id="install-now" hidden>立即安装交通智问</button><div class="install-platforms" role="group" aria-label="选择安装设备"><button data-install-platform="android" aria-pressed="false">华为 / 安卓</button><button data-install-platform="ios" aria-pressed="false">iPhone / iPad</button><button data-install-platform="desktop" aria-pressed="true">电脑</button></div><section data-install-guide="android" hidden><div class="android-download"><a href="/downloads/traffic-smart-qa-1.1.0.apk" download="traffic-smart-qa-1.1.0.apk">下载安卓 APK（华为兼容版）</a><p>v1.1.0 · 适用于兼容安卓的鸿蒙和 Android 6.0 及以上。使用时需要联网。</p><small>此 APK 不适用于鸿蒙 NEXT 原生系统。</small></div><ol class="install-steps"><li>用<strong>华为浏览器</strong>打开本页，点上方下载按钮。微信、QQ 内请先选“在浏览器中打开”。</li><li>下载完成后打开 APK，按系统安装提示确认，再从桌面打开<strong>交通智问</strong>。</li><li>不安装 APK 也可继续用网页；兼容安卓的华为浏览器可在菜单中选“添加至 → 桌面”。</li></ol></section><ol class="install-steps" data-install-guide="ios" hidden><li>用 <strong>Safari</strong> 打开本页。</li><li>点浏览器的<strong>分享</strong>按钮，选择<strong>添加到主屏幕</strong>。</li><li>若有“作为网页 App 打开”选项，请开启，再点<strong>添加</strong>。</li></ol><ol class="install-steps" data-install-guide="desktop"><li>用 <strong>Chrome 或 Edge</strong> 打开本页。</li><li>点上方<strong>立即安装交通智问</strong>，或使用地址栏的安装图标、浏览器菜单中的<strong>安装此站点为应用</strong>。</li><li>确认后，从桌面或电脑的应用列表打开交通智问。</li></ol><p class="install-result" id="install-result" role="status"></p><p class="install-note" id="app-cache-note">安装由你在浏览器中确认。问答与实时查询需要联网；首次打开请保持网络连接，准备好离线界面。</p></dialog>
 <dialog id="map-dialog" class="map-dialog" aria-labelledby="map-viewer-title"><div class="map-dialog-content"><div class="map-toolbar"><strong id="map-viewer-title">地铁线网图</strong><div class="map-controls"><button id="map-zoom-out" aria-label="缩小地铁图">−</button><output id="map-zoom-label" aria-live="polite">100%</output><button id="map-zoom-in" aria-label="放大地铁图">＋</button><button id="map-fit">适应屏幕</button><button id="map-actual">原尺寸</button><button id="map-close" aria-label="关闭地铁图">关闭 ×</button></div></div><div id="map-stage" class="map-stage" tabindex="0" aria-label="地铁图，可滚动查看"><div class="map-canvas"><img id="map-viewer-image" alt=""></div></div><p class="map-viewer-note">放大后可上下、左右滚动查看站名；手机支持双指缩放。按 Esc 关闭。</p></div></dialog>
@@ -130,10 +160,44 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.data
 function syncTravelTools(){const open=!$('travel-settings').hidden&&$('travel-settings').open;document.body.classList.toggle('travel-expanded',open);$('travel-tools').setAttribute('aria-expanded',String(open));}
 $('travel-settings').addEventListener('toggle',syncTravelTools);
 $('travel-tools').onclick=()=>{if(selectedMode!=='travel')setMode('travel');else{$('travel-settings').open=!$('travel-settings').open;syncTravelTools();}if($('travel-settings').open)$('travel-settings').scrollIntoView({block:'nearest',behavior:'smooth'});};
-function updateTravelFields(){const action=$('action').value,road=action==='traffic',metro=action==='metro';document.querySelectorAll('.route-field').forEach(el=>el.hidden=road);$('transport-field').hidden=road||metro;$('road-field').hidden=!road;$('metro-browser').hidden=!metro;$('travel-hint').textContent=metro?'填写两座地铁站，或点击下方站名依次设置起终点。':'填写完整地点查询出行；道路路况按本次接口返回为准。';if(metro)loadMetroNetwork();}
-$('action').onchange=updateTravelFields;
+function updateTravelFields(){
+ const action=$('action').value,road=action==='traffic',metro=action==='metro';
+ document.querySelectorAll('.route-field').forEach(el=>el.hidden=road);
+ $('transport-field').hidden=road||metro;
+ $('strategy-field').hidden=action!=='route'||$('transport').value!=='transit';
+ $('road-field').hidden=!road;
+ $('metro-browser').hidden=!metro;
+ $('travel-hint').textContent=metro?'填写两座地铁站，或点击下方站名依次设置起终点。':'填写完整地点或道路名称，结果以本次地图查询为准。';
+ if(metro)loadMetroNetwork();
+}
+function clearTravelValidation(){
+ $('travel-validation').hidden=true;
+ for(const key of ['city','origin','destination','road'])$(key).removeAttribute('aria-invalid');
+}
+$('action').onchange=()=>{clearTravelValidation();updateTravelFields();};
+$('transport').onchange=updateTravelFields;
+$('travel-panel').addEventListener('input',clearTravelValidation);
+let accountTravelProfile=null;
+function applyTravelDefaults(force=false){
+ if(!force&&(selectedMode==='travel'||$('origin').value||$('destination').value||$('road').value))return;
+ const service=window.TrafficTravelPrefs;
+ const values=service?service.formDefaults(service.store.read()):{city:'南京',action:'metro',transport:'transit',strategy:''};
+ if(window.TrafficHistory?.authenticated()&&accountTravelProfile){
+  if(accountTravelProfile.city)values.city=accountTravelProfile.city;
+  if(accountTravelProfile.transport){
+   values.transport=accountTravelProfile.transport;
+   values.action=values.transport==='transit'?values.action:'route';
+  }
+ }
+ for(const [key,value] of Object.entries(values))$(key).value=value;
+ if(force){
+  for(const key of ['origin','destination','road'])$(key).value='';
+  clearTravelValidation();
+ }
+ if(selectedMode==='travel')updateTravelFields();
+}
 function addUser(text){document.body.classList.add('has-messages');$('empty')?.remove();const d=document.createElement('div');d.className='msg me';d.innerHTML='<div class="who">你</div><div class="bubble">'+esc(text)+'</div>';$('log').appendChild(d);}
-function addBot(r,replay=false,question=""){const d=document.createElement('div');d.className='msg';const cards=window.TrafficRoutes?.canRender(r);let html='<div class="who">交通智问</div><div class="bubble'+(r.ok?'':' err')+'">'+esc(r.ok?(cards?window.TrafficRoutes.summary(r):r.answer):r.error||'请求失败')+'</div>';
+function addBot(r,replay=false,question="",retry=null){const d=document.createElement('div');d.className='msg';const cards=window.TrafficRoutes?.canRender(r);let html='<div class="who">交通智问</div><div class="bubble'+(r.ok?'':' err')+'">'+esc(r.ok?(cards?window.TrafficRoutes.summary(r):r.answer):r.error||'请求失败')+'</div>';
  if(r.ok){if(r.images?.length)html+=r.images.map(mapImageHtml).join('');html+='<div class="meta"><span class="tag">'+esc(domainNames[r.domain]||'数据分析')+'</span><span class="tag">'+esc(engineNames[r.engine]||'模型分析')+'</span>'+'</div>';
  if(r.notice)html+='<div class="notice">'+esc(r.notice)+'</div>';
  if(r.resolved_addresses)html+='<div class="hint">解析地址：'+esc(r.resolved_addresses.origin)+' → '+esc(r.resolved_addresses.destination)+'</div>';
@@ -145,7 +209,7 @@ function addBot(r,replay=false,question=""){const d=document.createElement('div'
  }d.innerHTML=html;
  const evidence=window.TrafficQueryUI?.evidence(r,replay);if(evidence)d.querySelector('.who').after(evidence);
  if(cards)d.querySelector('.bubble').after(window.TrafficRoutes.render(r));window.TrafficRoutes?.bindChoices(d,r,question);
- if((r.unavailable||r.needs_input||!r.ok)&&!r.clarification?.options?.length){const actions=document.createElement('div');actions.className='recovery-actions';const button=(name,action)=>{const b=document.createElement('button');b.type='button';b.textContent=name;b.onclick=()=>{if(!busy)action();};actions.appendChild(b);};if(question&&!r.needs_input)button('重新查询',()=>send(question,r.slots?{...r.slots,contextual:'true'}:{}));if(r.domain==='travel'||r.slots?.action){button('修改出行条件',()=>editRoute(r.slots||routeContext||{},false));button('查地铁站间换乘',()=>editRoute(r.slots||routeContext||{},true));}d.appendChild(actions);if(r.domain==='travel'){const note=document.createElement('p');note.className='recovery-note';note.textContent='地铁站间查询使用已收录线网，需明确两座车站，不包含当前位置到车站的步行段。';d.appendChild(note);}}
+ if((r.unavailable||r.needs_input||!r.ok)&&!r.clarification?.options?.length){const actions=document.createElement('div');actions.className='recovery-actions';const button=(name,action)=>{const b=document.createElement('button');b.type='button';b.textContent=name;b.onclick=()=>{if(!busy)action();};actions.appendChild(b);};if(question&&!r.needs_input)button('重新查询',retry||(()=>send(question,retryTravel({},r.slots),replay&&r.domain==='travel'?'travel':undefined,[])));if(r.domain==='travel'||r.slots?.action){button('修改出行条件',()=>editRoute(r.slots||routeContext||{},false));button('查地铁站间换乘',()=>editRoute(r.slots||routeContext||{},true));}d.appendChild(actions);if(r.domain==='travel'){const note=document.createElement('p');note.className='recovery-note';note.textContent='地铁站间查询使用已收录线网，需明确两座车站，不包含当前位置到车站的步行段。';d.appendChild(note);}}
  if(r.ok&&r.answer)d.dataset.voiceAnswer=r.answer;$('log').appendChild(d);if(r.ok&&r.answer)window.TrafficVoice?.bindAnswer(d,r.answer);d.querySelectorAll('.metro-figure').forEach(figure=>{const image=figure.querySelector('img'),open=figure.querySelector('.metro-image-open'),error=figure.querySelector('.metro-image-error');open.onclick=()=>openMap(image);image.addEventListener('error',()=>{open.hidden=true;error.hidden=false;});error.querySelector('button').onclick=()=>{open.hidden=false;error.hidden=true;const url=new URL(image.src);url.searchParams.set('retry',Date.now());image.src=url.href;};});if(r.chart){const el=d.querySelector('.result-chart');if(window.echarts){const chart=echarts.init(el);chart.setOption(r.chart);}else{el.textContent='图表组件暂未加载，查询明细仍可查看。';}}if(!replay){if(d.querySelector('.metro-figure'))d.scrollIntoView({block:'start',behavior:'smooth'});else scrollBottom();}}
 let routeContext=null;
 function captureRoute(result){
@@ -155,35 +219,70 @@ function captureRoute(result){
  $('route-context').hidden=!routeContext;if(routeContext)$('route-context').textContent='当前出行：'+[routeContext.city,routeContext.origin&&routeContext.destination?routeContext.origin+' → '+routeContext.destination:routeContext.road].filter(Boolean).join(' · ')+' · 可继续修改路线';
 }
 function editRoute(slots,metro){setMode('travel');for(const k of ['city','origin','destination','transport','road'])if(slots[k])$(k).value=slots[k];$('action').value=metro?'metro':slots.action==='traffic'?'traffic':'route';if(metro&&/^(?:当前位置|我的位置)$/.test($('origin').value))$('origin').value='';updateTravelFields();if(metro)$('travel-hint').textContent='请填写两座地铁站。站间换乘使用已收录线网，不包含从当前位置到车站的步行段。';$('travel-panel').scrollIntoView({block:'center',behavior:'smooth'});(!$('origin').value?$('origin'):$('destination')).focus();}
-async function send(preset,details,modeOverride){
+function retryTravel(input={},resolved){
+ const source=resolved?.action?{...resolved,contextual:'false'}:input;
+ const keys=['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id','contextual'];
+ return Object.fromEntries(keys.filter(key=>typeof source[key]==='string').map(key=>[key,source[key]]));
+}
+async function send(preset,details,modeOverride,retryHistory){
  if(busy)return;const text=(preset??$('q').value).trim();if(!text)return;
  if(!window.TrafficQuery?.run||!window.TrafficQueryUI?.pending||!window.TrafficHistory?.ready){$('modebar').textContent='查询组件正在加载，请稍后重试；若持续出现，请刷新页面。';return;}
  window.TrafficVoice?.beforeSubmit();const controller=new AbortController(),request={controller},requestMode=modeOverride||selectedMode;
  activeRequest=request;busy=true;document.body.classList.add('query-active');window.TrafficVoice?.setBusy(true);$('go').disabled=true;$('travel-go').disabled=true;$('go').textContent='处理中';$('cancel-query').hidden=false;$('voice-input').hidden=true;
  const pending=window.TrafficQueryUI.pending(()=>controller.abort(new DOMException('已取消查询','AbortError')));$('query-progress').replaceChildren(pending.element);$('query-progress').hidden=false;scrollBottom();
- const timeout=setTimeout(()=>controller.abort(new DOMException('查询等待超时','TimeoutError')),130000);let signedIn=false,travel={},historyLocked=false;
- const retry=()=>{if(busy)return;setMode(requestMode);const clean=Object.fromEntries(['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id','contextual'].filter(k=>typeof travel[k]==='string').map(k=>[k,travel[k]]));send(text,clean,requestMode);};
+ const timeout=setTimeout(()=>controller.abort(new DOMException('查询等待超时','TimeoutError')),130000);let signedIn=false,travel=retryTravel(details),historyLocked=false,servedSlots=null;
+ let requestHistory=retryHistory;
+ const retry=()=>{
+  if(busy)return;
+  setMode(requestMode);
+  send(text,retryTravel(travel,servedSlots),requestMode,requestHistory);
+ };
  try{
   await window.TrafficQueryUI.waitFor(window.TrafficHistory?.ready,controller.signal);if(controller.signal.aborted)throw controller.signal.reason;
+  requestHistory??=conversation.slice(-8).map(item=>({role:item.role,content:item.content.slice(0,1500)}));
   signedIn=window.TrafficHistory?.authenticated()||false;window.TrafficHistory?.busy(true);historyLocked=true;
-  const follow=window.TrafficTravel?.isTravelFollowup(text),inherited=follow&&routeContext?{...routeContext,contextual:'true'}:{},fresh=window.TrafficLocation?.details(text,{...inherited,...details})||{};
+  const follow=window.TrafficTravel?.isTravelFollowup(text),inherited=retryHistory===undefined&&follow&&routeContext?{...routeContext,contextual:'true'}:{},fresh=window.TrafficLocation?.details(text,{...inherited,...details})||{};
   travel={...inherited,...(Object.keys(fresh).length?{contextual:'true',...fresh}:{}),...details};
   if(preset==null&&$('q').value.trim()===text){$('q').value='';$('q').style.height='';}addUser(text);
-  const result=await window.TrafficQuery.run({session_id:SID,message:text,history:signedIn?[]:conversation.slice(-8).map(h=>({role:h.role,content:h.content.slice(0,1500)})),account_required:signedIn,thread_id:window.TrafficHistory?.threadId()||undefined,request_id:crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random().toString(36).slice(2),mode:requestMode,travel},{signal:controller.signal,onProgress:stage=>{if(activeRequest===request&&!controller.signal.aborted)pending.progress(stage);}});
+  const result=await window.TrafficQuery.run({session_id:SID,message:text,history:signedIn?[]:requestHistory,account_required:signedIn,thread_id:window.TrafficHistory?.threadId()||undefined,request_id:crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random().toString(36).slice(2),mode:requestMode,travel},{signal:controller.signal,onProgress:stage=>{if(activeRequest===request&&!controller.signal.aborted)pending.progress(stage);}});
   if(controller.signal.aborted||activeRequest!==request)throw controller.signal.reason||new DOMException('查询已取消','AbortError');
   clearTimeout(timeout);pending.dispose();if(result.ok){conversation.push({role:'user',content:text},{role:'assistant',content:result.answer});if(conversation.length>12)conversation.splice(0,conversation.length-12);}
-  if(result.ok&&!result.needs_input&&!result.unavailable){$('travel-settings').open=false;syncTravelTools();}addBot(result,false,text);captureRoute(result);window.TrafficHistory.received(result,text,requestMode).catch(window.TrafficHistory.fail);
+  if(result.ok&&!result.needs_input&&!result.unavailable){$('travel-settings').open=false;syncTravelTools();}servedSlots=result.slots;addBot(result,false,text,retry);captureRoute(result);window.TrafficHistory.received(result,text,requestMode).catch(window.TrafficHistory.fail);
  }catch(error){
   pending.dispose();const reason=controller.signal.reason,timed=error.name==='TimeoutError'||error.code==='REQUEST_TIMEOUT'||error.status===504||reason?.name==='TimeoutError',cancelled=controller.signal.aborted||error.name==='AbortError'||error.code==='REQUEST_ABORTED';
   if(timed||cancelled){document.body.classList.add('has-messages');$('log').appendChild(window.TrafficQueryUI.state(timed?'timeout':'cancelled',retry));scrollBottom();}
   else{if(error.status===401)window.TrafficHistory?.fail(error);const wait=Number(error.retryAfter),message=(error.name==='TypeError'&&/fetch|network|load|failed/i.test(error.message||'')?'网络连接失败，请检查网络后重试。':error.message||'服务连接失败')+(Number.isFinite(wait)&&wait>0?' 请在 '+Math.ceil(wait)+' 秒后重试。':'');
-   const failed={ok:false,error:message,...(travel.action?{domain:'travel',slots:Object.fromEntries(['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id'].filter(k=>typeof travel[k]==='string').map(k=>[k,travel[k]]))}:{})};addBot(failed,false,text);if(!signedIn)await window.TrafficHistory?.received(failed,text,requestMode).catch(window.TrafficHistory.fail);
+   const failed={ok:false,error:message,...(travel.action?{domain:'travel',slots:Object.fromEntries(['city','origin','destination','transport','action','road','strategy','origin_id','destination_id','station_id'].filter(k=>typeof travel[k]==='string').map(k=>[k,travel[k]]))}:{})};addBot(failed,false,text,retry);if(!signedIn)await window.TrafficHistory?.received(failed,text,requestMode).catch(window.TrafficHistory.fail);
   }
  }finally{clearTimeout(timeout);pending.dispose();if(activeRequest===request){activeRequest=null;busy=false;document.body.classList.remove('query-active');$('query-progress').hidden=true;if(historyLocked)window.TrafficHistory?.busy(false);window.TrafficVoice?.setBusy(false);$('go').disabled=false;$('travel-go').disabled=false;$('go').textContent='发送';$('cancel-query').hidden=true;$('voice-input').hidden=false;}}
 }
 $('cancel-query').onclick=()=>activeRequest?.controller.abort(new DOMException('已取消查询','AbortError'));
 $('go').onclick=()=>send();$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}});
-$('travel-go').onclick=()=>{const details=Object.fromEntries(['action','city','origin','destination','transport','road'].map(k=>[k,$(k).value.trim()]));const names={transit:'公交地铁',driving:'驾车',walking:'步行'};if(details.action==='metro')details.transport='transit';if(details.transport==='transit'&&routeContext&&details.city.replace(/市$/,'')===routeContext.city?.replace(/市$/,'')){for(const k of ['origin','destination'])if(details[k]===routeContext[k]&&routeContext[k+'_id'])details[k+'_id']=routeContext[k+'_id'];}const text=details.action==='traffic'?'城市：'+details.city+'，道路：'+details.road+'，查询实时路况':details.city+'从'+details.origin+'到'+details.destination+'，'+(details.action==='metro'?'地铁站间换乘':names[details.transport]+'路线');send(text,details);};
+$('travel-go').onclick=()=>{
+ clearTravelValidation();
+ const details=Object.fromEntries(['action','city','origin','destination','transport','road'].map(key=>[key,$(key).value.trim()]));
+ const names={transit:'公交地铁',driving:'驾车',walking:'步行'};
+ const traffic=details.action==='traffic';
+ const required=traffic?['city','road']:['city','origin','destination'];
+ const missing=required.filter(key=>!details[key]);
+ if(missing.length){
+  const labels={city:'城市',origin:'起点',destination:'终点',road:'道路名称'};
+  for(const key of missing)$(key).setAttribute('aria-invalid','true');
+  $('travel-validation').textContent='请补充'+missing.map(key=>labels[key]).join('、')+'。';
+  $('travel-validation').hidden=false;
+  $(missing[0]).focus();
+  return;
+ }
+ if(traffic){delete details.origin;delete details.destination;delete details.transport;}
+ else delete details.road;
+ if(details.action==='metro')details.transport='transit';
+ if(details.action==='route'&&details.transport==='transit'&&$('strategy').value)details.strategy=$('strategy').value;
+ if(details.transport==='transit'&&routeContext&&details.city.replace(/市$/,'')===routeContext.city?.replace(/市$/,'')){
+  for(const key of ['origin','destination'])if(details[key]===routeContext[key]&&routeContext[key+'_id'])details[key+'_id']=routeContext[key+'_id'];
+ }
+ const text=traffic?'城市：'+details.city+'，道路：'+details.road+'，查询实时路况':details.city+'从'+details.origin+'到'+details.destination+'，'+(details.action==='metro'?'地铁站间换乘':names[details.transport]+'路线');
+ send(text,details);
+};
 $('clear').onclick=()=>{if(busy)return;window.TrafficHistory?.newChat();window.TrafficChat.reset();};
 async function loadStatus(){try{const r=await(await fetch('/api/status')).json();$('knowledge-status').textContent=r.knowledge_chunks+' 个知识片段 · '+(r.llm?'支持模型归纳':'支持原文检索');$('maps-status').textContent=r.maps?'地图服务已配置':'待配置地图服务 Key';$('service-status').textContent='交通服务已连接';if(r.annual_records)$('coverage-records').textContent=r.annual_records;if(r.annual_cities?.length)$('coverage-cities').textContent=r.annual_cities.length;if(r.annual_years?.length)$('coverage-years').textContent=r.annual_years[0]+' — '+r.annual_years.at(-1);$('data-status').textContent=r.llm?'指标直查 + 模型分析':'指标直查可用 · 开放分析待配置模型';}catch{$('modebar').textContent='暂时无法读取服务状态，请稍后刷新重试。';}}
 
@@ -203,21 +302,72 @@ window.addEventListener('resize',()=>{if(!matchMedia('(max-width:900px)').matche
 document.addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false);});
 
 
-let loadedMetroCity='',metroNetworkData=null,metroRequest=0,metroTimer;
+let loadedMetroCity='',metroNetworkData=null,metroController=null,loadingMetroCity='',metroTimer;
 function renderMetroLine(){const line=metroNetworkData?.lines.find(l=>l.id===$('metro-line').value);$('metro-line-stations').replaceChildren();if(!line)return;const color=/^#[0-9a-f]{6}$/i.test(line.color)?line.color:'#2864ec';$('metro-line-stations').style.setProperty('--metro-line-color',color);line.stations.forEach(station=>{const b=document.createElement('button');b.className='metro-station'+(new Set(station.lines).size>1?' transfer':'');b.textContent=station.name;b.title=station.lines.join('、');b.onclick=()=>{if(!$('origin').value||$('destination').value){$('origin').value=station.name;$('destination').value='';}else $('destination').value=station.name;};$('metro-line-stations').appendChild(b);});}
-async function loadMetroNetwork(){const city=$('city').value.trim().replace(/市$/,'');if(!city||city===loadedMetroCity)return;const request=++metroRequest;loadedMetroCity='';metroNetworkData=null;$('metro-summary').textContent='正在读取 '+city+' 线网…';$('metro-line').disabled=true;$('metro-map-link').hidden=true;$('metro-line-stations').replaceChildren();$('metro-stations').replaceChildren();try{const response=await fetch('/api/metro/network?city='+encodeURIComponent(city));const data=await response.json();if(request!==metroRequest)return;if(!response.ok)throw new Error(data.error||'暂时无法读取线网');loadedMetroCity=city;metroNetworkData=data;$('metro-line').replaceChildren();const stations=new Map();data.lines.forEach(line=>{const option=document.createElement('option');option.value=line.id;option.textContent=line.name+' · '+line.stations[0].name+' — '+line.stations.at(-1).name;$('metro-line').appendChild(option);line.stations.forEach(station=>stations.set(station.id,station));});stations.forEach(station=>{const o=document.createElement('option');o.value=station.name;o.label=station.lines.join('、');$('metro-stations').appendChild(o);});$('metro-line').disabled=false;$('metro-summary').textContent=data.station_count+' 个轨道站点 · '+new Set(data.lines.map(l=>l.name)).size+' 条命名线路 · 资料抓取于 '+data.retrieved_at.slice(0,10)+'。加粗为换乘站，点站名依次填起终点。';$('metro-map-link').hidden=false;$('metro-map-link').onclick=()=>send(data.city+'地铁图');renderMetroLine();}catch(error){if(request!==metroRequest)return;loadedMetroCity='';metroNetworkData=null;$('metro-line').replaceChildren();$('metro-summary').textContent=error.message+'；可改用公交 / 驾车路线查询普通地址。';}}
-async function loadMetroCatalogue(){try{const response=await fetch('/api/metro/cities');if(!response.ok)return;const data=await response.json();data.cities.forEach(city=>{const option=document.createElement('option');option.value=city.city;option.label=city.status==='available'?'已接入轨道站点':'当前未收录独立线网';$('metro-cities').appendChild(option);});$('metro-coverage').textContent='站点查询：'+data.summary.network_cities+' 城 · '+data.summary.stations+' 个站点（按城市线网计）';if(!$('city').value)$('city').value='南京';if(selectedMode==='travel')loadMetroNetwork();}catch{}}
-$('city').addEventListener('input',()=>{clearTimeout(metroTimer);metroTimer=setTimeout(()=>{if($('action').value==='metro')loadMetroNetwork();},350);});
+function formMetroCity(){return $('city').value.trim().replace(/市$/,'');}
+function clearMetroNetwork(){
+ metroController?.abort();
+ metroController=null;loadingMetroCity='';loadedMetroCity='';metroNetworkData=null;
+ $('metro-line').replaceChildren();$('metro-line').disabled=true;$('metro-map-link').hidden=true;
+ $('metro-line-stations').replaceChildren();$('metro-stations').replaceChildren();
+ $('metro-summary').textContent=formMetroCity()?'等待读取线网…':'请先填写城市。';
+}
+async function loadMetroNetwork(){
+ const city=formMetroCity();
+ if(!city){clearMetroNetwork();return;}
+ if(city===loadedMetroCity||city===loadingMetroCity)return;
+ clearMetroNetwork();
+ const controller=new AbortController();
+ metroController=controller;loadingMetroCity=city;
+ $('metro-summary').textContent='正在读取 '+city+' 线网…';
+ try{
+  const response=await fetch('/api/metro/network?city='+encodeURIComponent(city),{signal:controller.signal});
+  const data=await response.json();
+  if(controller.signal.aborted||city!==formMetroCity())return;
+  if(!response.ok)throw new Error(data.error||'暂时无法读取线网。');
+  const stations=new Map();
+  for(const line of data.lines){
+   if(!line.stations.length)continue;
+   const option=document.createElement('option');
+   option.value=line.id;
+   option.textContent=line.name+' · '+line.stations[0].name+' — '+line.stations.at(-1).name;
+   $('metro-line').appendChild(option);
+   for(const station of line.stations)stations.set(station.id,station);
+  }
+  for(const station of stations.values()){
+   const option=document.createElement('option');
+   option.value=station.name;option.label=station.lines.join('、');$('metro-stations').appendChild(option);
+  }
+  loadedMetroCity=city;metroNetworkData=data;
+  $('metro-line').disabled=!stations.size;
+  $('metro-summary').textContent=data.station_count+' 个轨道站点 · '+new Set(data.lines.map(line=>line.name)).size+' 条命名线路 · 资料抓取于 '+data.retrieved_at.slice(0,10)+'。点站名设置起终点。';
+  $('metro-map-link').hidden=false;
+  $('metro-map-link').onclick=()=>send(data.city+'地铁图');
+  renderMetroLine();
+ }catch(error){
+  if(controller.signal.aborted||city!==formMetroCity())return;
+  $('metro-summary').textContent=error.message+' 可尝试其他城市，或改用公交 / 驾车路线。';
+ }finally{
+  if(metroController===controller){metroController=null;loadingMetroCity='';}
+ }
+}
+async function loadMetroCatalogue(){try{const response=await fetch('/api/metro/cities');if(!response.ok)return;const data=await response.json();data.cities.forEach(city=>{const option=document.createElement('option');option.value=city.city;option.label=city.status==='available'?'已接入轨道站点':'当前未收录独立线网';$('metro-cities').appendChild(option);});$('metro-coverage').textContent='站点查询：'+data.summary.network_cities+' 城 · '+data.summary.stations+' 个站点（按城市线网计）';if(selectedMode==='travel'&&$('action').value==='metro')loadMetroNetwork();}catch{}}
+$('city').addEventListener('input',()=>{
+ clearTimeout(metroTimer);
+ const city=formMetroCity();
+ if(!city||city!==loadedMetroCity&&city!==loadingMetroCity)clearMetroNetwork();
+ metroTimer=setTimeout(()=>{if($('action').value==='metro'&&selectedMode==='travel')loadMetroNetwork();},350);
+});
 $('city').addEventListener('change',()=>{if($('action').value==='metro')loadMetroNetwork();});
 $('metro-line').onchange=renderMetroLine;
 loadMetroCatalogue();
 
-window.TrafficChat={setMode,
+window.TrafficChat={setMode,applyTravelDefaults,
  chooseStation(question,travel){if(busy)return false;setMode('travel');$('travel-settings').open=false;syncTravelTools();send(question,{...travel,contextual:'false'});return true;},
  queryRoute(route){if(busy)return false;setMode('travel');$('travel-settings').open=false;syncTravelTools();const text=route.city+'从'+route.origin+'到'+route.destination+'，'+(route.action==='metro'?'地铁站间换乘':({transit:'公交地铁',driving:'驾车',walking:'步行'}[route.transport]||'')+'路线');send(text,{...route});return true;},
- reset(){routeContext=null;$('route-context').hidden=true;window.TrafficVoice?.reset();conversation.length=0;document.querySelectorAll('.result-chart').forEach(el=>window.echarts?.getInstanceByDom(el)?.dispose());document.body.classList.remove('has-messages');$('q').value='';$('q').style.height='';$('log').replaceChildren();setMenu(false);},
- profile(profile){if(profile.city){$('city').value=profile.city;$('city').dispatchEvent(new Event('change',{bubbles:true}));}$('transport').value=profile.transport||'transit';},
- restore(thread,preserveDraft=false){const draft=preserveDraft?$('q').value:'';this.reset();setMode(thread.mode||'auto');for(const turn of thread.turns){addUser(turn.question);addBot(turn.reply,true,turn.question);captureRoute(turn.reply);if(turn.reply.ok)conversation.push({role:'user',content:turn.question},{role:'assistant',content:turn.reply.answer||''});}if(conversation.length>12)conversation.splice(0,conversation.length-12);const last=thread.turns.at(-1)?.reply;if(last?.ok&&!last.needs_input&&!last.unavailable){$('travel-settings').open=false;syncTravelTools();}$('q').value=draft;scrollBottom();}
+ reset(keepTravelDraft=false){routeContext=null;if(!keepTravelDraft)applyTravelDefaults(true);$('route-context').hidden=true;window.TrafficVoice?.reset();conversation.length=0;document.querySelectorAll('.result-chart').forEach(el=>window.echarts?.getInstanceByDom(el)?.dispose());document.body.classList.remove('has-messages');$('q').value='';$('q').style.height='';$('log').replaceChildren();setMenu(false);},
+ profile(profile){accountTravelProfile=profile;applyTravelDefaults(true);},
+ restore(thread,preserveDraft=false){const draft=preserveDraft?$('q').value:'';this.reset(preserveDraft);setMode(thread.mode||'auto');for(const turn of thread.turns){addUser(turn.question);addBot(turn.reply,true,turn.question);captureRoute(turn.reply);if(turn.reply.ok)conversation.push({role:'user',content:turn.question},{role:'assistant',content:turn.reply.answer||''});}if(conversation.length>12)conversation.splice(0,conversation.length-12);const last=thread.turns.at(-1)?.reply;if(last?.ok&&!last.needs_input&&!last.unavailable){$('travel-settings').open=false;syncTravelTools();}$('q').value=draft;scrollBottom();}
 };
 window.addEventListener('resize',()=>document.querySelectorAll('.result-chart').forEach(el=>window.echarts?.getInstanceByDom(el)?.resize()));
 setMode('auto');loadStatus();

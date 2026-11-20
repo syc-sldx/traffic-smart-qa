@@ -68,5 +68,5 @@
     };
   }
   let storage;try{storage=localStorage;}catch{storage={get length(){throw Error('unavailable');}};}
-  window.TrafficFavorites={create,store:create(storage)};
+  window.TrafficFavorites={create,normalize,signature,store:create(storage)};
 })();
